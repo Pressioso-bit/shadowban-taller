@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SHADOWBAN Taller</title>
+<link rel="icon" href="logo.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+/* Layout: single-column mobile-first, max-width 540px centered, card-based UI */
+:root {
+  --bg: #F6EFE3;
+  --card: #FFFAF1;
+  --ink: #241A17;
+  --dim: #6B5D55;
+  --coral: #DE5D48;
+  --coral-soft: #e8866e;
+  --turq: #58E4BF;
+  --turq-dim: #3aab8e;
+  --navy: #0F1830;
+  --ochre: #B9801C;
+  --ok: #2F8F5B;
+  --bad: #B3392B;
+  --line: #E3D6C3;
+  --display: 'Bricolage Grotesque', system-ui, sans-serif;
+  --body: 'Atkinson Hyperlegible', system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #150F0D; --card: #231A17; --ink: #F1E8D9; --dim: #B8A99A;
+    --coral: #E0714B; --coral-soft: #c45733; --turq: #58E4BF; --turq-dim: #3aab8e;
+    --navy: #0A0F1E; --ochre: #E0A33D; --ok: #5FCF93; --bad: #FF7A68;
+    --line: #3A2B26; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #150F0D; --card: #231A17; --ink: #F1E8D9; --dim: #B8A99A;
+  --coral: #E0714B; --coral-soft: #c45733; --turq: #58E4BF; --turq-dim: #3aab8e;
+  --navy: #0A0F1E; --ochre: #E0A33D; --ok: #5FCF93; --bad: #FF7A68;
+  --line: #3A2B26; color-scheme: dark;
+}
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--body); line-height: 1.5;
+  padding-inline: 16px;
+}
+main {
+  max-width: 540px; margin: 0 auto;
+  padding-block: 24px 48px;
+}
+
+/* ── Shared elements ── */
+.eyebrow {
+  color: var(--ochre); font-size: .72rem; letter-spacing: .14em;
+  font-weight: 700; text-transform: uppercase; margin-bottom: 4px;
+}
+h1 {
+  font-family: var(--display); font-weight: 800;
+  font-size: 2.4rem; letter-spacing: -.02em; margin: 0 0 4px;
+}
+.sub {
+  font-style: italic; color: var(--coral); margin: 0 0 24px;
+  font-size: 1.05rem;
+}
+.card {
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: 18px; padding: 24px; margin-bottom: 16px;
+}
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 8px; padding: 14px 28px; border: 0; border-radius: 14px;
+  background: var(--coral); color: #fff;
+  font-family: var(--body); font-size: 1rem; font-weight: 700;
+  cursor: pointer; transition: opacity .15s;
+}
+.btn:hover:not(:disabled) { opacity: .85 }
+.btn:disabled { opacity: .5; cursor: not-allowed }
+.btn.ghost {
+  background: transparent; color: var(--ink);
+  border: 1.5px solid var(--line);
+}
+.btn.turq { background: var(--turq); color: var(--navy) }
+.btn.navy { background: var(--navy); color: #fff }
+.btn.sm { padding: 10px 18px; font-size: .9rem; border-radius: 12px }
+input[type="text"], input[type="password"] {
+  width: 100%; padding: 14px 16px; border: 1.5px solid var(--line);
+  border-radius: 12px; background: var(--bg); color: var(--ink);
+  font-family: var(--body); font-size: 1rem; box-sizing: border-box;
+}
+input:focus { outline: 2px solid var(--coral); border-color: var(--coral) }
+
+.foot {
+  margin-top: 32px; text-align: center; font-style: italic;
+  color: var(--dim); font-size: .88rem;
+}
+
+/* ── Activity cards ── */
+.act-card {
+  background: var(--card); border: 1.5px solid var(--line);
+  border-radius: 18px; padding: 28px; cursor: pointer;
+  transition: border-color .15s, transform .15s;
+}
+.act-card:hover:not(.locked) { border-color: var(--coral); transform: translateY(-2px) }
+.act-card.locked { opacity: .55; cursor: not-allowed }
+.act-card .num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--coral); color: #fff;
+  font-family: var(--display); font-weight: 800; font-size: .9rem;
+}
+.act-card.locked .num { background: var(--dim) }
+.act-card h3 {
+  font-family: var(--display); font-weight: 700;
+  font-size: 1.3rem; margin: 10px 0 6px;
+}
+.act-card p { color: var(--dim); margin: 0; font-size: .95rem }
+.act-card .lock-badge {
+  display: inline-block; margin-top: 10px; padding: 4px 12px;
+  border-radius: 8px; background: var(--line); color: var(--dim);
+  font-size: .8rem; font-weight: 700;
+}
+
+/* ── Trivia ── */
+.tabs { display: flex; gap: 8px; margin-bottom: 16px }
+.tabs button {
+  flex: 1; padding: 10px; border: 1.5px solid var(--line);
+  background: var(--card); color: var(--ink); border-radius: 12px;
+  font-family: var(--body); font-weight: 600; cursor: pointer;
+}
+.tabs button.on { background: var(--coral); border-color: var(--coral); color: #fff }
+.meta { color: var(--dim); font-size: .85rem; margin-bottom: 8px }
+.q { font-size: 1.15rem; font-weight: 600; margin: 0 0 14px }
+.opt {
+  display: block; width: 100%; text-align: left; margin: 8px 0;
+  padding: 12px 14px; border: 1.5px solid var(--line);
+  background: transparent; color: var(--ink); border-radius: 12px;
+  font-family: var(--body); font-size: 1rem; cursor: pointer;
+}
+.opt:hover:not(:disabled) { border-color: var(--coral) }
+.opt.ok { border-color: var(--ok); background: color-mix(in srgb, var(--ok) 16%, transparent) }
+.opt.bad { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 14%, transparent) }
+.exp {
+  margin-top: 14px; padding: 12px 14px; border-left: 4px solid var(--ochre);
+  background: color-mix(in srgb, var(--ochre) 10%, transparent);
+  border-radius: 6px; font-size: .95rem;
+}
+.hint {
+  color: var(--dim); font-size: .9rem; cursor: pointer;
+  text-decoration: underline; margin-top: 6px; display: inline-block;
+}
+.row { display: flex; gap: 8px; margin-top: 16px; justify-content: space-between }
+.flip {
+  min-height: 220px; display: flex; flex-direction: column;
+  justify-content: center; cursor: pointer; text-align: center;
+}
+.flip .lab {
+  color: var(--ochre); font-size: .72rem; letter-spacing: .14em;
+  font-weight: 600; text-transform: uppercase; margin-bottom: 10px;
+}
+.flip .big { font-size: 1.2rem; font-weight: 600 }
+.flip .small { margin-top: 12px; color: var(--dim); font-size: .95rem }
+.score { font-size: 3rem; font-weight: 700; color: var(--coral); margin: .2rem 0 }
+
+/* ── Upload zone ── */
+.upload-zone {
+  border: 2px dashed var(--line); border-radius: 18px;
+  padding: 40px 20px; text-align: center; cursor: pointer;
+  transition: border-color .2s, background .2s;
+}
+.upload-zone:hover, .upload-zone.drag { border-color: var(--turq); background: color-mix(in srgb, var(--turq) 8%, transparent) }
+.upload-zone svg { margin-bottom: 12px }
+.upload-zone p { margin: 0; color: var(--dim) }
+.preview-img {
+  width: 100%; max-height: 400px; object-fit: contain;
+  border-radius: 12px; margin-top: 16px;
+}
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; margin-top: 16px }
+.gallery img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 12px; background: var(--line) }
+
+/* ── Admin ── */
+.stat-row { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap }
+.stat {
+  flex: 1; min-width: 120px; background: var(--card); border: 1px solid var(--line);
+  border-radius: 14px; padding: 16px; text-align: center;
+}
+.stat .n { font-family: var(--display); font-size: 2rem; font-weight: 800; color: var(--coral) }
+.stat .l { font-size: .82rem; color: var(--dim); margin-top: 2px }
+.toggle-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 0; border-bottom: 1px solid var(--line);
+}
+.toggle-row:last-child { border-bottom: 0 }
+.toggle {
+  position: relative; width: 52px; height: 28px; cursor: pointer;
+}
+.toggle input { position: absolute; opacity: 0; width: 0; height: 0 }
+.toggle .slider {
+  position: absolute; inset: 0; background: var(--line); border-radius: 14px;
+  transition: background .2s;
+}
+.toggle .slider::after {
+  content: ''; position: absolute; left: 3px; top: 3px;
+  width: 22px; height: 22px; background: #fff; border-radius: 50%;
+  transition: transform .2s;
+}
+.toggle input:checked + .slider { background: var(--ok) }
+.toggle input:checked + .slider::after { transform: translateX(24px) }
+
+.p-list { list-style: none; padding: 0; margin: 0 }
+.p-list li {
+  padding: 10px 0; border-bottom: 1px solid var(--line);
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: .95rem;
+}
+.p-list li:last-child { border-bottom: 0 }
+.p-list .time { color: var(--dim); font-size: .82rem }
+
+/* ── Config notice ── */
+.config-warn {
+  background: color-mix(in srgb, var(--ochre) 14%, transparent);
+  border: 1.5px solid var(--ochre); border-radius: 14px;
+  padding: 20px; margin-bottom: 20px; font-size: .95rem;
+}
+.config-warn strong { color: var(--ochre) }
+
+/* ── Back nav ── */
+.back {
+  display: inline-flex; align-items: center; gap: 6px;
+  color: var(--dim); font-size: .9rem; cursor: pointer;
+  background: none; border: 0; font-family: var(--body);
+  padding: 0; margin-bottom: 16px;
+}
+.back:hover { color: var(--ink) }
+
+/* ── Progress dots ── */
+.dots { display: flex; gap: 6px; justify-content: center; margin-top: 16px }
+.dots span {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--line);
+}
+.dots span.on { background: var(--coral) }
+
+/* ── Spinner ── */
+.spin {
+  display: inline-block; width: 20px; height: 20px;
+  border: 2.5px solid rgba(255,255,255,.3);
+  border-top-color: #fff; border-radius: 50%;
+  animation: spin .6s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg) } }
+
+/* ── Photo card overlay ── */
+.photo-card {
+  position: relative; border-radius: 12px; overflow: hidden;
+}
+.photo-card img { display: block }
+.photo-card .name-tag {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  padding: 8px 12px; background: linear-gradient(transparent, rgba(0,0,0,.7));
+  color: #fff; font-size: .82rem; font-weight: 700;
+}
+.logo { display:block; width:140px; height:auto; margin:0 auto 14px; border-radius:20px; background:#fff }
+.eyebrow, h1, .sub { text-align:center }
+</style>
+</head>
+<body>
+
+<main id="app"></main>
+
+<script src="config.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  Firebase SDK loader (carga desde CDN de Google)
+// ═══════════════════════════════════════════════════════════════
+let fb = null, fdb = null, fst = null;
+let firebaseReady = false;
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = src; s.onload = resolve; s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+async function initFirebase() {
+  if (!CONFIG.firebase.apiKey) return false;
+  try {
+    const V = "10.12.0";
+    const CDN = "https://www.gstatic.com/firebasejs/" + V;
+    // Load app first, then firestore + storage in parallel
+    await loadScript(CDN + "/firebase-app-compat.js");
+    await Promise.all([
+      loadScript(CDN + "/firebase-firestore-compat.js"),
+      loadScript(CDN + "/firebase-storage-compat.js")
+    ]);
+    fb = firebase.initializeApp(CONFIG.firebase);
+    fdb = firebase.firestore();
+    fst = firebase.storage();
+    firebaseReady = true;
+    return true;
+  } catch (e) {
+    console.error("Firebase init error:", e);
+    return false;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  State
+// ═══════════════════════════════════════════════════════════════
+let participantId = null;
+let participantName = "";
+try {
+  participantId = localStorage.getItem("sb_pid");
+  participantName = localStorage.getItem("sb_pname") || "";
+} catch(e) {}
+
+const app = document.getElementById("app");
+
+// ═══════════════════════════════════════════════════════════════
+//  Router
+// ═══════════════════════════════════════════════════════════════
+function route() {
+  const hash = location.hash.slice(1) || "";
+  if (hash === "trivia") return viewTrivia();
+  if (hash === "collage") return viewCollage();
+  if (hash === "actividades") {
+    if (!participantId) return viewRegistro();
+    return viewActividades();
+  }
+  if (participantId) return viewActividades();
+  return viewRegistro();
+}
+window.addEventListener("hashchange", route);
+
+// ═══════════════════════════════════════════════════════════════
+//  Helpers
+// ═══════════════════════════════════════════════════════════════
+function esc(s) { return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;") }
+function header() {
+  return `<img src="logo.png" alt="Alma de Negra" class="logo">
+<div class="eyebrow">Taller · Resistencia Digital · Balmaceda Arte Joven</div>
+<h1>${CONFIG.tallerName}</h1>
+<p class="sub">visibles a pesar del algoritmo</p>`;
+}
+function backBtn(target, label) {
+  return `<button class="back" onclick="location.hash='${target}'">← ${label || 'Volver'}</button>`;
+}
+function footer() {
+  return `<div class="foot">porque si no nos muestran, nos contamos nosotras mismas.</div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  VIEW: Registro
+// ═══════════════════════════════════════════════════════════════
+function viewRegistro() {
+  app.innerHTML = `${header()}
+<div class="card">
+  <h2 style="font-family:var(--display);font-weight:700;font-size:1.3rem;margin:0 0 6px">¡Bienvenida!</h2>
+  <p style="color:var(--dim);margin:0 0 20px;font-size:.95rem">Escribe tu nombre para participar en las actividades del taller.</p>
+  <form id="regForm">
+    <input type="text" id="nameInput" placeholder="Tu nombre" autocomplete="off" required style="margin-bottom:14px">
+    <button type="submit" class="btn" style="width:100%">Entrar al taller</button>
+  </form>
+  <p id="regErr" style="color:var(--bad);font-size:.9rem;margin:10px 0 0" hidden></p>
+</div>
+${footer()}`;
+
+  document.getElementById("regForm").onsubmit = async (e) => {
+    e.preventDefault();
+    const name = document.getElementById("nameInput").value.trim();
+    if (!name) return;
+    const errEl = document.getElementById("regErr");
+    const btn = e.target.querySelector("button");
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spin"></span> Registrando...';
+
+    if (!firebaseReady) {
+      // Modo sin Firebase — solo localStorage
+      participantId = "local_" + Date.now();
+      participantName = name;
+      try {
+        localStorage.setItem("sb_pid", participantId);
+        localStorage.setItem("sb_pname", participantName);
+      } catch(ex) {}
+      location.hash = "actividades";
+      return;
+    }
+
+    try {
+      const doc = await fdb.collection("participants").add({
+        name: name,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      participantId = doc.id;
+      participantName = name;
+      try {
+        localStorage.setItem("sb_pid", participantId);
+        localStorage.setItem("sb_pname", participantName);
+      } catch(ex) {}
+      location.hash = "actividades";
+    } catch (err) {
+      console.error(err);
+      errEl.textContent = "Error al registrar. Intentá de nuevo.";
+      errEl.hidden = false;
+      btn.disabled = false;
+      btn.textContent = "Entrar al taller";
+    }
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  VIEW: Actividades (hub)
+// ═══════════════════════════════════════════════════════════════
+let activityConfig = { trivia: true, collage: true };
+let configUnsub = null;
+
+function viewActividades() {
+  // Listen for config changes
+  if (firebaseReady && !configUnsub) {
+    configUnsub = fdb.doc("config/settings").onSnapshot(snap => {
+      if (snap.exists) {
+        const d = snap.data();
+        activityConfig.trivia = d.trivia !== false;
+        activityConfig.collage = d.collage !== false;
+        if (location.hash === "#actividades" || location.hash === "") renderActividades();
+      }
+    }, () => {});
+  }
+  renderActividades();
+}
+
+function renderActividades() {
+  const t = activityConfig.trivia;
+  const c = activityConfig.collage;
+
+  app.innerHTML = `${header()}
+<p style="margin:0 0 20px;font-size:.95rem">Hola <strong>${esc(participantName)}</strong> 👋 Estas son las actividades del taller:</p>
+
+<div class="act-card ${t?'':'locked'}" id="actTrivia" style="margin-bottom:14px">
+  <span class="num">1</span>
+  <h3>Trivia: ¿Qué sabés del shadowban?</h3>
+  <p>Poné a prueba lo que sabés sobre censura algorítmica, violencia digital y resistencia en redes.</p>
+  ${t?'':'<span class="lock-badge">🔒 Esperá la indicación</span>'}
+</div>
+
+<div class="act-card ${c?'':'locked'}" id="actCollage">
+  <span class="num">2</span>
+  <h3>Collage: Subí tu obra</h3>
+  <p>Cuando termines tu collage, sacale una foto y subila acá para compartirla con el grupo.</p>
+  ${c?'':'<span class="lock-badge">🔒 Esperá la indicación</span>'}
+</div>
+
+<div style="margin-top:20px;text-align:center">
+  <button class="btn ghost sm" onclick="participantId=null;participantName='';try{localStorage.removeItem('sb_pid');localStorage.removeItem('sb_pname')}catch(e){};location.hash=''">Cambiar nombre</button>
+</div>
+${footer()}`;
+
+  if (t) document.getElementById("actTrivia").onclick = () => location.hash = "trivia";
+  if (c) document.getElementById("actCollage").onclick = () => location.hash = "collage";
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  VIEW: Trivia
+// ═══════════════════════════════════════════════════════════════
+const QUESTIONS = [
+  {p:"¿Qué es el “shadowban”?",o:["Cuando te bloquean la cuenta por completo","Cuando la plataforma reduce tu alcance sin avisarte ni explicarte por qué","Un modo oscuro de la app","Cuando borran tu cuenta por reportes falsos"],c:1,h:"Tiene que ver con la palabra “sombra”…",e:"El shadowban es censura silenciosa: seguís publicando, pero casi nadie ve tu contenido, y la plataforma no te lo dice ni da explicación."},
+  {p:"En 2020 se denunció que una plataforma muy popular entre jóvenes bloqueó temporalmente las vistas del hashtag #BlackLivesMatter. ¿Cuál fue?",o:["TikTok","Pinterest","LinkedIn","Spotify"],c:0,h:"Es la app de videos cortos con mucha música.",e:"TikTok reconoció el error y pidió disculpas, pero quedó como uno de los casos más citados de censura algorítmica hacia el activismo afro."},
+  {p:"¿Cuál de estas NO es una forma de violencia digital?",o:["Recibir insultos y amenazas en los comentarios","Que tu contenido sobre tu cultura sea marcado como “sensible” sin motivo","Que un amigo te deje de seguir porque cambió de intereses","Que borren tu foto por mostrar tu cabello natural, alegando que viola normas"],c:2,h:"Una de las cuatro es parte normal de usar redes.",e:"Dejar de seguir es una decisión personal. Las otras tres son formas documentadas de violencia digital: acoso directo y censura algorítmica."},
+  {p:"Si sentís que tu alcance bajó de golpe, ¿podés comprobar con certeza que es un shadowban?",o:["Sí, la app siempre te avisa con una notificación","No, la mayoría de las veces no hay forma oficial de confirmarlo","Sí, basta con revisar tus seguidores","No aplica, eso no existe"],c:1,h:"Pensá en lo silenciosa que es esta censura.",e:"Esa es justamente la violencia: no hay aviso ni explicación oficial, y comprobarlo es casi imposible. Por eso se llama “sombra”."},
+  {p:"¿Cuál es una estrategia real que usan creadoras para esquivar la censura algorítmica?",o:["Reemplazar palabras sensibles por otras parecidas o con emojis (ej: “unalive”)","Publicar menos seguido para no llamar la atención","Borrar toda mención a su identidad o cultura","Pagar publicidad todos los días"],c:0,h:"Mezcla “algoritmo” con otra palabra…",e:"Es el “algospeak”: cambiar palabras para esquivar los filtros automáticos sin dejar de decir lo que se quiere decir."},
+  {p:"¿Qué plataforma fue demandada en 2022 por mostrar contenido dañino a adolescentes a través de su algoritmo?",o:["Twitter / X","Instagram","Snapchat","YouTube"],c:1,h:"Es la red de fotos y stories más usada por jóvenes.",e:"Varias familias y fiscales generales en EE.UU. demandaron a Meta (Instagram) por el daño que su algoritmo causaba a la salud mental de adolescentes, especialmente chicas."},
+  {p:"El término “algospeak” se refiere a:",o:["Un lenguaje de programación nuevo","El lenguaje codificado que usan creadorxs para esquivar la censura algorítmica","Una función de TikTok para hablar con IA","Un idioma inventado por hackers"],c:1,h:"Juntá “algoritmo” con “hablar”…",e:"El algospeak es resistencia lingüística: decir “unalive” en vez de “muerte”, “le@n” en vez de otra palabra, o usar emojis para que el filtro automático no censure el contenido."},
+  {p:"¿Por qué es importante documentar la violencia digital que sufrís?",o:["Para vengarte de quien te atacó","Para tener pruebas si necesitás denunciar o pedir ayuda","Porque las capturas se borran solas","No es importante, mejor olvidarlo"],c:1,h:"Pensá en qué necesitás para que alguien te crea.",e:"Documentar es protegerte: las capturas, los links, las fechas y tu relato son pruebas que pueden servir para denunciar, pedir apoyo o visibilizar lo que pasó."}
+];
+
+let qi = 0, qscore = 0, qdone = false, fi = 0, fflipped = false;
+
+function viewTrivia() {
+  app.innerHTML = `${backBtn('actividades','Actividades')}
+${header()}
+<div class="tabs"><button id="tq" class="on">Trivia</button><button id="tf">Tarjetas</button></div>
+<div id="triviaApp"></div>
+${footer()}`;
+
+  const tq = document.getElementById("tq");
+  const tf = document.getElementById("tf");
+  let mode = "q";
+  qi = 0; qscore = 0; fi = 0; fflipped = false;
+
+  function setMode(m) {
+    mode = m;
+    tq.classList.toggle("on", m==="q");
+    tf.classList.toggle("on", m==="f");
+    m==="q" ? renderQuiz() : renderCards();
+  }
+  tq.onclick = () => setMode("q");
+  tf.onclick = () => setMode("f");
+
+  function renderQuiz() {
+    const ta = document.getElementById("triviaApp");
+    if (qi >= QUESTIONS.length) {
+      ta.innerHTML = `<div class="card" style="text-align:center">
+        <div class="meta">Resultado</div>
+        <div class="score">${qscore}/${QUESTIONS.length}</div>
+        <p>${qscore >= 6 ? '¡Ya sabés cómo funciona el silencio algorítmico!' : 'Ahora sabés un poco más de lo que el algoritmo no quiere que veas.'}</p>
+        <div class="row" style="justify-content:center"><button class="btn" id="rs">Jugar de nuevo</button></div>
+      </div>`;
+      document.getElementById("rs").onclick = () => { qi=0; qscore=0; renderQuiz() };
+
+      // Save score to Firebase
+      if (firebaseReady && participantId && participantId.indexOf("local_") !== 0) {
+        fdb.collection("participants").doc(participantId).update({
+          triviaScore: qscore,
+          triviaTotal: QUESTIONS.length
+        }).catch(() => {});
+      }
+      return;
+    }
+    const q = QUESTIONS[qi];
+    qdone = false;
+    ta.innerHTML = `<div class="card">
+      <div class="meta">Pregunta ${qi+1} de ${QUESTIONS.length}</div>
+      <p class="q">${esc(q.p)}</p>
+      <div id="os">${q.o.map((t,k) => `<button class="opt" data-k="${k}">${esc(t)}</button>`).join("")}</div>
+      <span class="hint" id="qhint">Ver pista</span>
+      <div id="qex"></div>
+      <div class="row"><span></span><button class="btn sm" id="qnx" hidden>${qi===QUESTIONS.length-1?'Ver resultado':'Siguiente'}</button></div>
+    </div>
+    <div class="dots">${QUESTIONS.map((_,j) => `<span class="${j===qi?'on':''}"></span>`).join("")}</div>`;
+
+    document.getElementById("qhint").onclick = function() { this.textContent = q.h; this.style.textDecoration = "none" };
+    ta.querySelectorAll(".opt").forEach(b => b.onclick = () => {
+      if (qdone) return; qdone = true;
+      const k = +b.dataset.k;
+      if (k === q.c) qscore++;
+      ta.querySelectorAll(".opt").forEach(x => {
+        x.disabled = true;
+        const n = +x.dataset.k;
+        if (n === q.c) x.classList.add("ok");
+        else if (n === k) x.classList.add("bad");
+      });
+      document.getElementById("qex").innerHTML = `<div class="exp"><strong>${k===q.c?'¡Correcto!':'Casi.'}</strong> ${esc(q.e)}</div>`;
+      const nx = document.getElementById("qnx");
+      nx.hidden = false;
+      nx.onclick = () => { qi++; renderQuiz() };
+    });
+  }
+
+  function renderCards() {
+    const ta = document.getElementById("triviaApp");
+    const q = QUESTIONS[fi];
+    ta.innerHTML = `<div class="card flip" id="fl">${fflipped
+      ? `<div class="lab">Respuesta</div><div class="big">${esc(q.o[q.c])}</div><div class="small">${esc(q.e)}</div>`
+      : `<div class="lab">Tarjeta ${fi+1} de ${QUESTIONS.length}</div><div class="big">${esc(q.p)}</div><div class="small">Tocá para dar vuelta</div>`
+    }</div>
+    <div class="row"><button class="btn ghost sm" id="fpv">← Anterior</button><button class="btn sm" id="fnt">Siguiente →</button></div>
+    <div class="dots">${QUESTIONS.map((_,j) => `<span class="${j===fi?'on':''}"></span>`).join("")}</div>`;
+
+    document.getElementById("fl").onclick = () => { fflipped = !fflipped; renderCards() };
+    document.getElementById("fpv").onclick = () => { fi = (fi-1+QUESTIONS.length)%QUESTIONS.length; fflipped = false; renderCards() };
+    document.getElementById("fnt").onclick = () => { fi = (fi+1)%QUESTIONS.length; fflipped = false; renderCards() };
+  }
+
+  setMode("q");
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  VIEW: Collage upload
+// ═══════════════════════════════════════════════════════════════
+function viewCollage() {
+  app.innerHTML = `${backBtn('actividades','Actividades')}
+${header()}
+<div class="card">
+  <h2 style="font-family:var(--display);font-weight:700;font-size:1.3rem;margin:0 0 6px">Subí la foto de tu collage</h2>
+  <p style="color:var(--dim);margin:0 0 20px;font-size:.95rem">Cuando termines tu collage, sacale una foto y subila acá. Tu obra quedará guardada junto con las del grupo.</p>
+
+  <div class="upload-zone" id="dropZone">
+    <svg width="48" height="48" viewBox="0 0 48 48" fill="none"><rect x="4" y="10" width="40" height="30" rx="4" stroke="var(--dim)" stroke-width="2.5"/><path d="M16 30l6-8 4 5 6-9 8 12H8z" fill="var(--line)"/><circle cx="16" cy="18" r="3" fill="var(--ochre)"/><path d="M24 4v10M20 8l4-4 4 4" stroke="var(--coral)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <p><strong>Tocá para elegir una foto</strong></p>
+    <p style="font-size:.85rem">o arrastrá la imagen acá</p>
+  </div>
+  <input type="file" id="fileInput" accept="image/*" capture="environment" hidden>
+  <img id="previewImg" class="preview-img" hidden>
+  <div id="uploadActions" hidden style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
+    <button class="btn" id="uploadBtn" style="flex:1">Subir foto</button>
+    <button class="btn ghost" id="cancelBtn">Cambiar</button>
+  </div>
+  <div id="uploadStatus" hidden style="margin-top:14px"></div>
+</div>
+
+<div id="myUploads"></div>
+${footer()}`;
+
+  const dropZone = document.getElementById("dropZone");
+  const fileInput = document.getElementById("fileInput");
+  const previewImg = document.getElementById("previewImg");
+  const uploadActions = document.getElementById("uploadActions");
+  const uploadBtn = document.getElementById("uploadBtn");
+  const cancelBtn = document.getElementById("cancelBtn");
+  const uploadStatus = document.getElementById("uploadStatus");
+  let selectedFile = null;
+
+  dropZone.onclick = () => fileInput.click();
+  dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add("drag") };
+  dropZone.ondragleave = () => dropZone.classList.remove("drag");
+  dropZone.ondrop = (e) => {
+    e.preventDefault(); dropZone.classList.remove("drag");
+    if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+  };
+  fileInput.onchange = () => { if (fileInput.files.length) handleFile(fileInput.files[0]) };
+
+  function handleFile(file) {
+    if (!file.type.startsWith("image/")) {
+      uploadStatus.innerHTML = `<p style="color:var(--bad)">Solo se permiten imágenes.</p>`;
+      uploadStatus.hidden = false;
+      return;
+    }
+    selectedFile = file;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      previewImg.src = e.target.result;
+      previewImg.hidden = false;
+      dropZone.hidden = true;
+      uploadActions.hidden = false;
+      uploadActions.style.display = "flex";
+      uploadStatus.hidden = true;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  cancelBtn.onclick = () => {
+    selectedFile = null;
+    previewImg.hidden = true;
+    dropZone.hidden = false;
+    uploadActions.hidden = true;
+    fileInput.value = "";
+  };
+
+  uploadBtn.onclick = async () => {
+    if (!selectedFile) return;
+
+    if (!firebaseReady) {
+      uploadStatus.innerHTML = `<p style="color:var(--bad)">Firebase no está configurado. No se puede subir la foto ahora.</p>`;
+      uploadStatus.hidden = false;
+      return;
+    }
+
+    uploadBtn.disabled = true;
+    uploadBtn.innerHTML = '<span class="spin"></span> Subiendo...';
+
+    try {
+      // Compress image before upload
+      const compressed = await compressImage(selectedFile, 1200, 0.8);
+
+      // Upload to Firebase Storage
+      const filename = `collages/${participantId}_${Date.now()}.jpg`;
+      const ref = fst.ref(filename);
+      await ref.put(compressed);
+      const url = await ref.getDownloadURL();
+
+      // Save record to Firestore
+      await fdb.collection("uploads").add({
+        participantId: participantId,
+        participantName: participantName,
+        imageUrl: url,
+        storagePath: filename,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      uploadStatus.innerHTML = `<div class="card" style="background:color-mix(in srgb, var(--ok) 12%, transparent);border-color:var(--ok);text-align:center">
+        <p style="font-size:1.1rem;font-weight:700;color:var(--ok);margin:0 0 6px">✓ ¡Foto subida!</p>
+        <p style="margin:0;color:var(--dim);font-size:.9rem">Tu collage ya está guardado. Podés subir otra foto si querés.</p>
+      </div>`;
+      uploadStatus.hidden = false;
+
+      // Reset for another upload
+      selectedFile = null;
+      previewImg.hidden = true;
+      dropZone.hidden = false;
+      uploadActions.hidden = true;
+      fileInput.value = "";
+
+      loadMyUploads();
+    } catch (err) {
+      console.error(err);
+      uploadStatus.innerHTML = `<p style="color:var(--bad)">Error al subir la foto. Intentá de nuevo.</p>`;
+      uploadStatus.hidden = false;
+    }
+    uploadBtn.disabled = false;
+    uploadBtn.textContent = "Subir foto";
+  };
+
+  loadMyUploads();
+}
+
+async function loadMyUploads() {
+  const container = document.getElementById("myUploads");
+  if (!container || !firebaseReady || !participantId || participantId.indexOf("local_") === 0) return;
+
+  try {
+    const snap = await fdb.collection("uploads")
+      .where("participantId", "==", participantId)
+      .orderBy("timestamp", "desc")
+      .get();
+
+    if (snap.empty) return;
+
+    let html = `<div class="card"><h3 style="font-family:var(--display);font-weight:700;margin:0 0 12px">Tus fotos subidas</h3><div class="gallery">`;
+    snap.forEach(doc => {
+      const d = doc.data();
+      html += `<img src="${esc(d.imageUrl)}" alt="Tu collage" loading="lazy">`;
+    });
+    html += `</div></div>`;
+    container.innerHTML = html;
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+// Image compression
+function compressImage(file, maxDim, quality) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    img.onload = () => {
+      let w = img.width, h = img.height;
+      if (w > maxDim || h > maxDim) {
+        if (w > h) { h = Math.round(h * maxDim / w); w = maxDim }
+        else { w = Math.round(w * maxDim / h); h = maxDim }
+      }
+      canvas.width = w; canvas.height = h;
+      ctx.drawImage(img, 0, 0, w, h);
+      canvas.toBlob(blob => resolve(blob), "image/jpeg", quality);
+    };
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  Boot — muestra la interfaz INMEDIATAMENTE, Firebase carga de fondo
+// ═══════════════════════════════════════════════════════════════
+// Show UI right away — no waiting for Firebase
+route();
+
+// Load Firebase in background
+initFirebase().then(ok => {
+  if (!ok && CONFIG.firebase.apiKey) {
+    console.error("Firebase failed to initialize");
+  }
+  // Re-render current view now that Firebase is ready (or not)
+  if (ok) route();
+});
+
+</script>
+</body>
+</html>

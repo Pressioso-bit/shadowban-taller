@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SHADOWBAN · Admin</title>
+<link rel="icon" href="logo.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+/* Layout: single-column mobile-first, max-width 540px centered, card-based UI */
+:root {
+  --bg: #F6EFE3;
+  --card: #FFFAF1;
+  --ink: #241A17;
+  --dim: #6B5D55;
+  --coral: #DE5D48;
+  --coral-soft: #e8866e;
+  --turq: #58E4BF;
+  --turq-dim: #3aab8e;
+  --navy: #0F1830;
+  --ochre: #B9801C;
+  --ok: #2F8F5B;
+  --bad: #B3392B;
+  --line: #E3D6C3;
+  --display: 'Bricolage Grotesque', system-ui, sans-serif;
+  --body: 'Atkinson Hyperlegible', system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #150F0D; --card: #231A17; --ink: #F1E8D9; --dim: #B8A99A;
+    --coral: #E0714B; --coral-soft: #c45733; --turq: #58E4BF; --turq-dim: #3aab8e;
+    --navy: #0A0F1E; --ochre: #E0A33D; --ok: #5FCF93; --bad: #FF7A68;
+    --line: #3A2B26; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #150F0D; --card: #231A17; --ink: #F1E8D9; --dim: #B8A99A;
+  --coral: #E0714B; --coral-soft: #c45733; --turq: #58E4BF; --turq-dim: #3aab8e;
+  --navy: #0A0F1E; --ochre: #E0A33D; --ok: #5FCF93; --bad: #FF7A68;
+  --line: #3A2B26; color-scheme: dark;
+}
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--body); line-height: 1.5;
+  padding-inline: 16px;
+}
+main {
+  max-width: 540px; margin: 0 auto;
+  padding-block: 24px 48px;
+}
+
+/* ── Shared elements ── */
+.eyebrow {
+  color: var(--ochre); font-size: .72rem; letter-spacing: .14em;
+  font-weight: 700; text-transform: uppercase; margin-bottom: 4px;
+}
+h1 {
+  font-family: var(--display); font-weight: 800;
+  font-size: 2.4rem; letter-spacing: -.02em; margin: 0 0 4px;
+}
+.sub {
+  font-style: italic; color: var(--coral); margin: 0 0 24px;
+  font-size: 1.05rem;
+}
+.card {
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: 18px; padding: 24px; margin-bottom: 16px;
+}
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 8px; padding: 14px 28px; border: 0; border-radius: 14px;
+  background: var(--coral); color: #fff;
+  font-family: var(--body); font-size: 1rem; font-weight: 700;
+  cursor: pointer; transition: opacity .15s;
+}
+.btn:hover:not(:disabled) { opacity: .85 }
+.btn:disabled { opacity: .5; cursor: not-allowed }
+.btn.ghost {
+  background: transparent; color: var(--ink);
+  border: 1.5px solid var(--line);
+}
+.btn.turq { background: var(--turq); color: var(--navy) }
+.btn.navy { background: var(--navy); color: #fff }
+.btn.sm { padding: 10px 18px; font-size: .9rem; border-radius: 12px }
+input[type="text"], input[type="password"] {
+  width: 100%; padding: 14px 16px; border: 1.5px solid var(--line);
+  border-radius: 12px; background: var(--bg); color: var(--ink);
+  font-family: var(--body); font-size: 1rem; box-sizing: border-box;
+}
+input:focus { outline: 2px solid var(--coral); border-color: var(--coral) }
+
+.foot {
+  margin-top: 32px; text-align: center; font-style: italic;
+  color: var(--dim); font-size: .88rem;
+}
+
+/* ── Activity cards ── */
+.act-card {
+  background: var(--card); border: 1.5px solid var(--line);
+  border-radius: 18px; padding: 28px; cursor: pointer;
+  transition: border-color .15s, transform .15s;
+}
+.act-card:hover:not(.locked) { border-color: var(--coral); transform: translateY(-2px) }
+.act-card.locked { opacity: .55; cursor: not-allowed }
+.act-card .num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--coral); color: #fff;
+  font-family: var(--display); font-weight: 800; font-size: .9rem;
+}
+.act-card.locked .num { background: var(--dim) }
+.act-card h3 {
+  font-family: var(--display); font-weight: 700;
+  font-size: 1.3rem; margin: 10px 0 6px;
+}
+.act-card p { color: var(--dim); margin: 0; font-size: .95rem }
+.act-card .lock-badge {
+  display: inline-block; margin-top: 10px; padding: 4px 12px;
+  border-radius: 8px; background: var(--line); color: var(--dim);
+  font-size: .8rem; font-weight: 700;
+}
+
+/* ── Trivia ── */
+.tabs { display: flex; gap: 8px; margin-bottom: 16px }
+.tabs button {
+  flex: 1; padding: 10px; border: 1.5px solid var(--line);
+  background: var(--card); color: var(--ink); border-radius: 12px;
+  font-family: var(--body); font-weight: 600; cursor: pointer;
+}
+.tabs button.on { background: var(--coral); border-color: var(--coral); color: #fff }
+.meta { color: var(--dim); font-size: .85rem; margin-bottom: 8px }
+.q { font-size: 1.15rem; font-weight: 600; margin: 0 0 14px }
+.opt {
+  display: block; width: 100%; text-align: left; margin: 8px 0;
+  padding: 12px 14px; border: 1.5px solid var(--line);
+  background: transparent; color: var(--ink); border-radius: 12px;
+  font-family: var(--body); font-size: 1rem; cursor: pointer;
+}
+.opt:hover:not(:disabled) { border-color: var(--coral) }
+.opt.ok { border-color: var(--ok); background: color-mix(in srgb, var(--ok) 16%, transparent) }
+.opt.bad { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 14%, transparent) }
+.exp {
+  margin-top: 14px; padding: 12px 14px; border-left: 4px solid var(--ochre);
+  background: color-mix(in srgb, var(--ochre) 10%, transparent);
+  border-radius: 6px; font-size: .95rem;
+}
+.hint {
+  color: var(--dim); font-size: .9rem; cursor: pointer;
+  text-decoration: underline; margin-top: 6px; display: inline-block;
+}
+.row { display: flex; gap: 8px; margin-top: 16px; justify-content: space-between }
+.flip {
+  min-height: 220px; display: flex; flex-direction: column;
+  justify-content: center; cursor: pointer; text-align: center;
+}
+.flip .lab {
+  color: var(--ochre); font-size: .72rem; letter-spacing: .14em;
+  font-weight: 600; text-transform: uppercase; margin-bottom: 10px;
+}
+.flip .big { font-size: 1.2rem; font-weight: 600 }
+.flip .small { margin-top: 12px; color: var(--dim); font-size: .95rem }
+.score { font-size: 3rem; font-weight: 700; color: var(--coral); margin: .2rem 0 }
+
+/* ── Upload zone ── */
+.upload-zone {
+  border: 2px dashed var(--line); border-radius: 18px;
+  padding: 40px 20px; text-align: center; cursor: pointer;
+  transition: border-color .2s, background .2s;
+}
+.upload-zone:hover, .upload-zone.drag { border-color: var(--turq); background: color-mix(in srgb, var(--turq) 8%, transparent) }
+.upload-zone svg { margin-bottom: 12px }
+.upload-zone p { margin: 0; color: var(--dim) }
+.preview-img {
+  width: 100%; max-height: 400px; object-fit: contain;
+  border-radius: 12px; margin-top: 16px;
+}
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; margin-top: 16px }
+.gallery img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 12px; background: var(--line) }
+
+/* ── Admin ── */
+.stat-row { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap }
+.stat {
+  flex: 1; min-width: 120px; background: var(--card); border: 1px solid var(--line);
+  border-radius: 14px; padding: 16px; text-align: center;
+}
+.stat .n { font-family: var(--display); font-size: 2rem; font-weight: 800; color: var(--coral) }
+.stat .l { font-size: .82rem; color: var(--dim); margin-top: 2px }
+.toggle-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 0; border-bottom: 1px solid var(--line);
+}
+.toggle-row:last-child { border-bottom: 0 }
+.toggle {
+  position: relative; width: 52px; height: 28px; cursor: pointer;
+}
+.toggle input { position: absolute; opacity: 0; width: 0; height: 0 }
+.toggle .slider {
+  position: absolute; inset: 0; background: var(--line); border-radius: 14px;
+  transition: background .2s;
+}
+.toggle .slider::after {
+  content: ''; position: absolute; left: 3px; top: 3px;
+  width: 22px; height: 22px; background: #fff; border-radius: 50%;
+  transition: transform .2s;
+}
+.toggle input:checked + .slider { background: var(--ok) }
+.toggle input:checked + .slider::after { transform: translateX(24px) }
+
+.p-list { list-style: none; padding: 0; margin: 0 }
+.p-list li {
+  padding: 10px 0; border-bottom: 1px solid var(--line);
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: .95rem;
+}
+.p-list li:last-child { border-bottom: 0 }
+.p-list .time { color: var(--dim); font-size: .82rem }
+
+/* ── Config notice ── */
+.config-warn {
+  background: color-mix(in srgb, var(--ochre) 14%, transparent);
+  border: 1.5px solid var(--ochre); border-radius: 14px;
+  padding: 20px; margin-bottom: 20px; font-size: .95rem;
+}
+.config-warn strong { color: var(--ochre) }
+
+/* ── Back nav ── */
+.back {
+  display: inline-flex; align-items: center; gap: 6px;
+  color: var(--dim); font-size: .9rem; cursor: pointer;
+  background: none; border: 0; font-family: var(--body);
+  padding: 0; margin-bottom: 16px;
+}
+.back:hover { color: var(--ink) }
+
+/* ── Progress dots ── */
+.dots { display: flex; gap: 6px; justify-content: center; margin-top: 16px }
+.dots span {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--line);
+}
+.dots span.on { background: var(--coral) }
+
+/* ── Spinner ── */
+.spin {
+  display: inline-block; width: 20px; height: 20px;
+  border: 2.5px solid rgba(255,255,255,.3);
+  border-top-color: #fff; border-radius: 50%;
+  animation: spin .6s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg) } }
+
+/* ── Photo card overlay ── */
+.photo-card {
+  position: relative; border-radius: 12px; overflow: hidden;
+}
+.photo-card img { display: block }
+.photo-card .name-tag {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  padding: 8px 12px; background: linear-gradient(transparent, rgba(0,0,0,.7));
+  color: #fff; font-size: .82rem; font-weight: 700;
+}
+.logo { display:block; width:140px; height:auto; margin:0 auto 14px; border-radius:20px; background:#fff }
+.eyebrow, h1, .sub { text-align:center }
+</style>
+</head>
+<body>
+
+<main id="app"></main>
+
+<script src="config.js"></script>
+<script>
+const ADMIN_PASSWORD = "alma2026"; // cambia aquí la contraseña del panel
+// ═══════════════════════════════════════════════════════════════
+//  Firebase SDK loader (carga desde CDN de Google)
+// ═══════════════════════════════════════════════════════════════
+let fb = null, fdb = null, fst = null;
+let firebaseReady = false;
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = src; s.onload = resolve; s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+async function initFirebase() {
+  if (!CONFIG.firebase.apiKey) return false;
+  try {
+    const V = "10.12.0";
+    const CDN = "https://www.gstatic.com/firebasejs/" + V;
+    // Load app first, then firestore + storage in parallel
+    await loadScript(CDN + "/firebase-app-compat.js");
+    await Promise.all([
+      loadScript(CDN + "/firebase-firestore-compat.js"),
+      loadScript(CDN + "/firebase-storage-compat.js")
+    ]);
+    fb = firebase.initializeApp(CONFIG.firebase);
+    fdb = firebase.firestore();
+    fst = firebase.storage();
+    firebaseReady = true;
+    return true;
+  } catch (e) {
+    console.error("Firebase init error:", e);
+    return false;
+  }
+}
+
+const app = document.getElementById("app");
+// ═══════════════════════════════════════════════════════════════
+//  Helpers
+// ═══════════════════════════════════════════════════════════════
+function esc(s) { return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;") }
+function header() {
+  return `<img src="logo.png" alt="Alma de Negra" class="logo">
+<div class="eyebrow">Taller · Resistencia Digital · Balmaceda Arte Joven</div>
+<h1>${CONFIG.tallerName}</h1>
+<p class="sub">visibles a pesar del algoritmo</p>`;
+}
+function backBtn(target, label) {
+  return `<button class="back" onclick="location.hash='${target}'">← ${label || 'Volver'}</button>`;
+}
+function footer() {
+  return `<div class="foot">porque si no nos muestran, nos contamos nosotras mismas.</div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  VIEW: Admin
+// ═══════════════════════════════════════════════════════════════
+let adminAuth = false;
+
+function viewAdmin() {
+  if (!adminAuth) {
+    app.innerHTML = `${header()}
+<div class="card">
+  <h2 style="font-family:var(--display);font-weight:700;font-size:1.3rem;margin:0 0 6px">Panel de administración</h2>
+  <p style="color:var(--dim);margin:0 0 20px;font-size:.95rem">Ingresá la contraseña para acceder.</p>
+  <form id="adminForm">
+    <input type="password" id="adminPass" placeholder="Contraseña" style="margin-bottom:14px">
+    <button type="submit" class="btn navy" style="width:100%">Entrar</button>
+  </form>
+  <p id="adminErr" style="color:var(--bad);font-size:.9rem;margin:10px 0 0" hidden>Contraseña incorrecta.</p>
+</div>`;
+    document.getElementById("adminForm").onsubmit = (e) => {
+      e.preventDefault();
+      if (document.getElementById("adminPass").value === ADMIN_PASSWORD) {
+        adminAuth = true;
+        viewAdminPanel();
+      } else {
+        document.getElementById("adminErr").hidden = false;
+      }
+    };
+    return;
+  }
+  viewAdminPanel();
+}
+
+function viewAdminPanel() {
+  app.innerHTML = `${header()}
+<h2 style="font-family:var(--display);font-weight:700;font-size:1.3rem;margin:0 0 20px">Panel de administración</h2>
+
+<div class="stat-row">
+  <div class="stat"><div class="n" id="statPart">–</div><div class="l">Participantes</div></div>
+  <div class="stat"><div class="n" id="statPhotos">–</div><div class="l">Fotos subidas</div></div>
+</div>
+
+<div class="card">
+  <h3 style="font-family:var(--display);font-weight:700;margin:0 0 14px">Actividades</h3>
+  <p style="color:var(--dim);font-size:.9rem;margin:0 0 14px">Activá o desactivá las actividades. Las personas verán los cambios al instante.</p>
+  <div class="toggle-row">
+    <div>
+      <strong>Actividad 1: Trivia</strong>
+      <div style="font-size:.85rem;color:var(--dim)">Preguntas sobre shadowban y violencia digital</div>
+    </div>
+    <label class="toggle"><input type="checkbox" id="togTrivia" checked><span class="slider"></span></label>
+  </div>
+  <div class="toggle-row">
+    <div>
+      <strong>Actividad 2: Collage</strong>
+      <div style="font-size:.85rem;color:var(--dim)">Subir foto del collage</div>
+    </div>
+    <label class="toggle"><input type="checkbox" id="togCollage" checked><span class="slider"></span></label>
+  </div>
+</div>
+
+<div class="card">
+  <h3 style="font-family:var(--display);font-weight:700;margin:0 0 4px">Código QR</h3>
+  <p style="color:var(--dim);font-size:.9rem;margin:0 0 14px">Las personas escanean este código para entrar al taller.</p>
+  <div id="qrContainer" style="text-align:center">
+    <img id="qrImg" alt="Código QR del taller" style="max-width:240px;border-radius:12px;background:#fff;padding:12px">
+  </div>
+  <p style="text-align:center;font-size:.85rem;color:var(--dim);margin:10px 0 0;word-break:break-all" id="qrUrl"></p>
+</div>
+
+<div class="card">
+  <h3 style="font-family:var(--display);font-weight:700;margin:0 0 14px">Participantes</h3>
+  <ul class="p-list" id="partList"><li style="color:var(--dim)">Cargando...</li></ul>
+</div>
+
+<div class="card">
+  <h3 style="font-family:var(--display);font-weight:700;margin:0 0 14px">Galería de collages</h3>
+  <div id="adminGallery" style="color:var(--dim);font-size:.95rem">Cargando fotos...</div>
+</div>
+
+<div style="margin-top:20px;text-align:center">
+  <button class="btn ghost sm" onclick="adminAuth=false;viewAdmin()">Cerrar sesión admin</button>
+</div>
+${footer()}`;
+
+  // Generate QR
+  const pageUrl = location.href.split("#")[0].split("?")[0].replace(/admin\.html$/, "");
+  const qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=" + encodeURIComponent(pageUrl);
+  document.getElementById("qrImg").src = qrUrl;
+  document.getElementById("qrUrl").textContent = pageUrl;
+
+  if (!firebaseReady) {
+    document.getElementById("partList").innerHTML = '<li style="color:var(--bad)">Firebase no está configurado.</li>';
+    document.getElementById("adminGallery").innerHTML = '<p style="color:var(--bad)">Firebase no está configurado.</p>';
+    document.getElementById("statPart").textContent = "–";
+    document.getElementById("statPhotos").textContent = "–";
+    return;
+  }
+
+  // Load config state
+  fdb.doc("config/settings").get().then(snap => {
+    if (snap.exists) {
+      const d = snap.data();
+      document.getElementById("togTrivia").checked = d.trivia !== false;
+      document.getElementById("togCollage").checked = d.collage !== false;
+    }
+  }).catch(() => {});
+
+  // Toggle handlers
+  document.getElementById("togTrivia").onchange = function() {
+    fdb.doc("config/settings").set({ trivia: this.checked, collage: document.getElementById("togCollage").checked }, { merge: true });
+  };
+  document.getElementById("togCollage").onchange = function() {
+    fdb.doc("config/settings").set({ trivia: document.getElementById("togTrivia").checked, collage: this.checked }, { merge: true });
+  };
+
+  // Load participants (realtime)
+  fdb.collection("participants").orderBy("timestamp", "desc").onSnapshot(snap => {
+    document.getElementById("statPart").textContent = snap.size;
+    const list = document.getElementById("partList");
+    if (snap.empty) { list.innerHTML = '<li style="color:var(--dim)">Aún no hay participantes.</li>'; return }
+    let html = "";
+    snap.forEach(doc => {
+      const d = doc.data();
+      const t = d.timestamp ? new Date(d.timestamp.toDate()).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }) : "";
+      const scoreText = d.triviaScore !== undefined ? ` — Trivia: ${d.triviaScore}/${d.triviaTotal}` : "";
+      html += `<li><span>${esc(d.name)}${scoreText}</span><span class="time">${t}</span></li>`;
+    });
+    list.innerHTML = html;
+  }, () => {});
+
+  // Load photos (realtime)
+  fdb.collection("uploads").orderBy("timestamp", "desc").onSnapshot(snap => {
+    document.getElementById("statPhotos").textContent = snap.size;
+    const gallery = document.getElementById("adminGallery");
+    if (snap.empty) { gallery.innerHTML = '<p style="color:var(--dim)">Aún no hay fotos.</p>'; return }
+    let html = '<div class="gallery">';
+    snap.forEach(doc => {
+      const d = doc.data();
+      html += `<div class="photo-card">
+        <img src="${esc(d.imageUrl)}" alt="Collage de ${esc(d.participantName)}" loading="lazy" style="width:100%;aspect-ratio:1;object-fit:cover">
+        <div class="name-tag">${esc(d.participantName)}</div>
+      </div>`;
+    });
+    html += '</div>';
+    gallery.innerHTML = html;
+  }, () => {});
+}
+
+
+viewAdmin();
+initFirebase().then(ok => { if (ok) viewAdmin(); });
+
+</script>
+</body>
+</html>
