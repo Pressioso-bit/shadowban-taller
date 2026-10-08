@@ -295,6 +295,7 @@ label.lb { display: block; font-size: .85rem; font-weight: 700; color: var(--dim
 // ═══════════════════════════════════════════════════════════════
 let fb = null, fdb = null;
 let firebaseReady = false;
+let firebaseError = "";
 
 function loadScript(src) {
   return new Promise((resolve, reject) => {
@@ -305,7 +306,7 @@ function loadScript(src) {
 }
 
 async function initFirebase() {
-  if (!CONFIG.firebase.apiKey) return false;
+  if (!CONFIG.firebase.apiKey) { firebaseError = "config.js no tiene las credenciales de Firebase (apiKey vacío)."; return false; }
   try {
     const V = "10.12.0";
     const CDN = "https://www.gstatic.com/firebasejs/" + V;
@@ -318,6 +319,7 @@ async function initFirebase() {
     return true;
   } catch (e) {
     console.error("Firebase init error:", e);
+    firebaseError = "No se pudieron cargar los scripts de Firebase (revisa tu conexión a internet o si algún bloqueador los impide).";
     return false;
   }
 }
@@ -327,9 +329,11 @@ async function initFirebase() {
 // ═══════════════════════════════════════════════════════════════
 let participantId = null;
 let participantName = "";
+let participantSid = null;
 try {
   participantId = localStorage.getItem("sb_pid");
   participantName = localStorage.getItem("sb_pname") || "";
+  participantSid = localStorage.getItem("sb_sid");
 } catch(e) {}
 
 const app = document.getElementById("app");
@@ -399,24 +403,31 @@ ${footer()}`;
       // Modo sin Firebase — solo localStorage
       participantId = "local_" + Date.now();
       participantName = name;
+      participantSid = "-";
       try {
         localStorage.setItem("sb_pid", participantId);
         localStorage.setItem("sb_pname", participantName);
+        localStorage.setItem("sb_sid", participantSid);
       } catch(ex) {}
       location.hash = "actividades";
       return;
     }
 
     try {
+      let active = null;
+      try { const cs = await fdb.doc("config/settings").get(); if (cs.exists) active = cs.data().activeSessionId || null; } catch (ex) {}
       const doc = await fdb.collection("participants").add({
         name: name,
+        sessionId: active,
         timestamp: firebase.firestore.FieldValue.serverTimestamp()
       });
       participantId = doc.id;
       participantName = name;
+      participantSid = active || "-";
       try {
         localStorage.setItem("sb_pid", participantId);
         localStorage.setItem("sb_pname", participantName);
+        localStorage.setItem("sb_sid", participantSid);
       } catch(ex) {}
       location.hash = "actividades";
     } catch (err) {
@@ -478,7 +489,7 @@ function renderActividades() {
 </div>
 
 <div style="margin-top:20px;text-align:center">
-  <button class="btn ghost sm" onclick="participantId=null;participantName='';try{localStorage.removeItem('sb_pid');localStorage.removeItem('sb_pname')}catch(e){};location.hash=''">Cambiar nombre</button>
+  <button class="btn ghost sm" onclick="participantId=null;participantName='';participantSid=null;try{localStorage.removeItem('sb_pid');localStorage.removeItem('sb_pname');localStorage.removeItem('sb_sid')}catch(e){};location.hash=''">Cambiar nombre</button>
 </div>
 ${footer()}`;
 
@@ -692,6 +703,7 @@ ${footer()}`;
       await fdb.collection("uploads").add({
         participantId: participantId,
         participantName: participantName,
+        sessionId: (participantSid && participantSid !== "-") ? participantSid : null,
         imageData: dataUrl,
         timestamp: firebase.firestore.FieldValue.serverTimestamp()
       });
@@ -1019,15 +1031,24 @@ ${footer()}`;
 // Show UI right away — no waiting for Firebase
 route();
 
-// Load Firebase in background
-initFirebase().then(ok => {
-  if (!ok && CONFIG.firebase.apiKey) {
-    console.error("Firebase failed to initialize");
-  }
-  // Re-render current view now that Firebase is ready (or not)
-  if (ok) route();
-});
+// Si el taller cambió de sesión (otra fecha), pide registrarse de nuevo
+async function syncSession() {
+  if (!firebaseReady || !participantId || participantId.indexOf("local_") === 0) return;
+  try {
+    const cs = await fdb.doc("config/settings").get();
+    const active = (cs.exists && cs.data().activeSessionId) || "-";
+    if (participantSid !== active) {
+      participantId = null; participantName = ""; participantSid = null;
+      try { localStorage.removeItem("sb_pid"); localStorage.removeItem("sb_pname"); localStorage.removeItem("sb_sid"); } catch (e) {}
+    }
+  } catch (e) {}
+}
 
+// Load Firebase in background
+initFirebase().then(async ok => {
+  if (!ok && CONFIG.firebase.apiKey) console.error("Firebase failed to initialize");
+  if (ok) { await syncSession(); route(); }
+});
 </script>
 </body>
 </html>

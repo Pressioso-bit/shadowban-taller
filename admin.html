@@ -260,6 +260,9 @@ input:focus { outline: 2px solid var(--coral); border-color: var(--coral) }
 }
 .logo { display:block; width:140px; height:auto; margin:0 auto 14px; border-radius:20px; background:#fff }
 .eyebrow, h1, .sub { text-align:center }
+
+select.fld, input[type="date"].fld, textarea.fld { width:100%; box-sizing:border-box; padding:12px 14px; border:1.5px solid var(--line); border-radius:12px; background:var(--bg); color:var(--ink); font-family:var(--body); font-size:1rem; margin-bottom:12px }
+label.lb { display:block; font-size:.85rem; font-weight:700; color:var(--dim); margin-bottom:4px }
 </style>
 </head>
 <body>
@@ -274,6 +277,7 @@ const ADMIN_PASSWORD = "alma2026"; // cambia aquí la contraseña del panel
 // ═══════════════════════════════════════════════════════════════
 let fb = null, fdb = null;
 let firebaseReady = false;
+let firebaseError = "";
 
 function loadScript(src) {
   return new Promise((resolve, reject) => {
@@ -284,7 +288,7 @@ function loadScript(src) {
 }
 
 async function initFirebase() {
-  if (!CONFIG.firebase.apiKey) return false;
+  if (!CONFIG.firebase.apiKey) { firebaseError = "config.js no tiene las credenciales de Firebase (apiKey vacío)."; return false; }
   try {
     const V = "10.12.0";
     const CDN = "https://www.gstatic.com/firebasejs/" + V;
@@ -297,6 +301,7 @@ async function initFirebase() {
     return true;
   } catch (e) {
     console.error("Firebase init error:", e);
+    firebaseError = "No se pudieron cargar los scripts de Firebase (revisa tu conexión a internet o si algún bloqueador los impide).";
     return false;
   }
 }
@@ -350,9 +355,43 @@ function viewAdmin() {
   viewAdminPanel();
 }
 
+let _unsubs = [];
+let _sessions = [], _parts = [], _ups = [], _cfg = {}, _viewSid = null, _viewManual = false;
+
+function fmtDate(s) { if (!s) return ""; const p = s.split("-"); return p.length === 3 ? p[2] + "-" + p[1] + "-" + p[0] : s; }
+function sessLabel(s) { return fmtDate(s.date) + " · " + s.name + (_cfg.activeSessionId === s.id ? "  ★ activa" : ""); }
+function matchSid(d) { return _viewSid === "all" ? true : _viewSid === "none" ? !d.sessionId : d.sessionId === _viewSid; }
+
 function viewAdminPanel() {
+  _unsubs.forEach(u => { try { u() } catch (e) {} }); _unsubs = [];
+  if (!firebaseReady) {
+    app.innerHTML = `${header()}
+<div class="card" id="fbWait"><p style="margin:0"><span class="spin" style="border-color:rgba(0,0,0,.15);border-top-color:var(--coral)"></span> Conectando con Firebase…</p></div>`;
+    fbInit.then(ok => {
+      if (ok) { viewAdminPanel(); return; }
+      document.getElementById("fbWait").innerHTML = `<p style="margin:0 0 8px;color:var(--bad);font-weight:700">No se pudo conectar con Firebase.</p><p style="margin:0 0 14px;font-size:.95rem">${esc(firebaseError || "Error desconocido.")}</p><button class="btn sm" onclick="location.reload()">Reintentar</button>`;
+    });
+    return;
+  }
   app.innerHTML = `${header()}
 <h2 style="font-family:var(--display);font-weight:700;font-size:1.3rem;margin:0 0 20px">Panel de administración</h2>
+
+<div class="card">
+  <h3 style="font-family:var(--display);font-weight:700;margin:0 0 4px">Sesión del taller</h3>
+  <p style="color:var(--dim);font-size:.9rem;margin:0 0 14px">Cada vez que hagas el taller, crea una sesión con su fecha. Las personas se registran en la <strong>sesión activa</strong>, y aquí puedes ver los datos de cada una por separado.</p>
+  <div id="activeInfo" style="padding:10px 14px;border-radius:12px;background:color-mix(in srgb, var(--turq) 22%, transparent);font-size:.95rem;margin-bottom:14px"></div>
+  <label class="lb" for="sesSel">Ver datos de</label>
+  <select id="sesSel" class="fld"></select>
+  <button class="btn ghost sm" id="setActive" style="width:100%;margin-bottom:18px">Marcar la sesión elegida como activa</button>
+  <div style="border-top:1px solid var(--line);padding-top:16px">
+    <strong style="font-size:.95rem">Nueva sesión</strong>
+    <label class="lb" for="sesName" style="margin-top:10px">Nombre</label>
+    <input type="text" id="sesName" value="Taller violencia digital" style="margin-bottom:10px">
+    <label class="lb" for="sesDate">Fecha</label>
+    <input type="date" id="sesDate" class="fld">
+    <button class="btn sm" id="sesNew" style="width:100%">Crear sesión y activarla</button>
+  </div>
+</div>
 
 <div class="stat-row">
   <div class="stat"><div class="n" id="statPart">–</div><div class="l">Participantes</div></div>
@@ -394,7 +433,7 @@ function viewAdminPanel() {
 
 <div class="card">
   <h3 style="font-family:var(--display);font-weight:700;margin:0 0 14px">Galería de collages</h3>
-  <button class="btn turq sm" id="dlAll" style="margin-bottom:14px" disabled>⬇ Descargar todas las fotos (ZIP)</button>
+  <button class="btn turq sm" id="dlAll" style="margin-bottom:14px" disabled>⬇ Descargar fotos de esta sesión (ZIP)</button>
   <div id="adminGallery" style="color:var(--dim);font-size:.95rem">Cargando fotos...</div>
 </div>
 
@@ -403,92 +442,103 @@ function viewAdminPanel() {
 </div>
 ${footer()}`;
 
-  // Generate QR
+  // QR
   const pageUrl = location.href.split("#")[0].split("?")[0].replace(/admin\.html$/, "");
-  const qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=" + encodeURIComponent(pageUrl);
-  document.getElementById("qrImg").src = qrUrl;
+  document.getElementById("qrImg").src = "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=" + encodeURIComponent(pageUrl);
   document.getElementById("qrUrl").textContent = pageUrl;
+  document.getElementById("sesDate").value = new Date().toLocaleDateString("en-CA");
 
-  if (!firebaseReady) {
-    document.getElementById("partList").innerHTML = '<li style="color:var(--bad)">Firebase no está configurado.</li>';
-    document.getElementById("adminGallery").innerHTML = '<p style="color:var(--bad)">Firebase no está configurado.</p>';
-    document.getElementById("statPart").textContent = "–";
-    document.getElementById("statPhotos").textContent = "–";
-    return;
+  const $ = id => document.getElementById(id);
+
+  function renderSessionUI() {
+    const act = _sessions.find(s => s.id === _cfg.activeSessionId);
+    $("activeInfo").innerHTML = act ? "Sesión activa: <strong>" + esc(sessLabel(act).replace("  ★ activa", "")) + "</strong>" : "No hay sesión activa: las personas se registran sin sesión. Crea una abajo.";
+    if (!_viewManual || (_viewSid !== "all" && _viewSid !== "none" && !_sessions.find(s => s.id === _viewSid))) _viewSid = (act && act.id) || (_sessions[0] && _sessions[0].id) || "all";
+    const opts = _sessions.map(s => `<option value="${esc(s.id)}">${esc(sessLabel(s))}</option>`).join("")
+      + '<option value="all">Todas las sesiones</option><option value="none">Sin sesión (anteriores)</option>';
+    $("sesSel").innerHTML = opts; $("sesSel").value = _viewSid;
+    $("setActive").hidden = (_viewSid === "all" || _viewSid === "none");
   }
 
-  document.getElementById("dlAll").onclick = async function() {
+  function renderData() {
+    const parts = _parts.filter(matchSid), ups = _ups.filter(matchSid);
+    $("statPart").textContent = parts.length; $("statPhotos").textContent = ups.length;
+    const list = $("partList");
+    list.innerHTML = parts.length ? parts.map(d => {
+      const t = d.timestamp ? new Date(d.timestamp.toDate()).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }) : "";
+      const sc = d.triviaScore !== undefined ? ` — Trivia: ${d.triviaScore}/${d.triviaTotal}` : "";
+      return `<li><span>${esc(d.name)}${sc}</span><span class="time">${t}</span></li>`;
+    }).join("") : '<li style="color:var(--dim)">Aún no hay participantes en esta vista.</li>';
+    window._photos = ups.filter(d => d.imageData).map(d => ({ name: d.participantName || "sin-nombre", data: d.imageData }));
+    $("dlAll").disabled = !window._photos.length;
+    $("adminGallery").innerHTML = ups.length ? '<div class="gallery">' + ups.map(d => `<div class="photo-card">
+        <img src="${esc(d.imageData || "")}" alt="Collage de ${esc(d.participantName || "")}" loading="lazy" style="width:100%;aspect-ratio:1;object-fit:cover">
+        <div class="name-tag">${esc(d.participantName || "")}</div></div>`).join("") + '</div>' : '<p style="color:var(--dim)">Aún no hay fotos en esta vista.</p>';
+  }
+
+  // sesiones
+  _unsubs.push(fdb.collection("sessions").onSnapshot(snap => {
+    _sessions = []; snap.forEach(d => _sessions.push(Object.assign({ id: d.id }, d.data())));
+    _sessions.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+    renderSessionUI(); renderData();
+  }, () => {}));
+  // configuración
+  _unsubs.push(fdb.doc("config/settings").onSnapshot(snap => {
+    _cfg = snap.exists ? snap.data() : {};
+    $("togTrivia").checked = _cfg.trivia !== false; $("togCollage").checked = _cfg.collage !== false;
+    renderSessionUI(); renderData();
+  }, () => {}));
+  // participantes y fotos
+  _unsubs.push(fdb.collection("participants").onSnapshot(snap => {
+    _parts = []; snap.forEach(d => _parts.push(d.data()));
+    _parts.sort((a, b) => (b.timestamp ? b.timestamp.seconds : 9e12) - (a.timestamp ? a.timestamp.seconds : 9e12));
+    renderData();
+  }, () => {}));
+  _unsubs.push(fdb.collection("uploads").onSnapshot(snap => {
+    _ups = []; snap.forEach(d => _ups.push(d.data()));
+    _ups.sort((a, b) => (b.timestamp ? b.timestamp.seconds : 9e12) - (a.timestamp ? a.timestamp.seconds : 9e12));
+    renderData();
+  }, () => {}));
+
+  $("sesSel").onchange = function() { _viewSid = this.value; _viewManual = true; renderSessionUI(); renderData(); };
+  $("setActive").onclick = () => { if (_viewSid && _viewSid !== "all" && _viewSid !== "none") fdb.doc("config/settings").set({ activeSessionId: _viewSid }, { merge: true }); };
+  $("sesNew").onclick = async function() {
+    const name = $("sesName").value.trim() || "Taller", date = $("sesDate").value;
+    if (!date) { alert("Elige la fecha de la sesión."); return; }
+    this.disabled = true;
+    try {
+      const ref = await fdb.collection("sessions").add({ name, date, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+      await fdb.doc("config/settings").set({ activeSessionId: ref.id }, { merge: true });
+      _viewSid = ref.id; _viewManual = false;
+    } catch (e) { alert("No se pudo crear la sesión."); console.error(e); }
+    this.disabled = false;
+  };
+  $("togTrivia").onchange = function() { fdb.doc("config/settings").set({ trivia: this.checked }, { merge: true }); };
+  $("togCollage").onchange = function() { fdb.doc("config/settings").set({ collage: this.checked }, { merge: true }); };
+
+  $("dlAll").onclick = async function() {
     const btn = this; btn.disabled = true; btn.textContent = "Preparando ZIP...";
     try {
       if (!window.JSZip) await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js");
       const zip = new JSZip(); const used = {};
-      window._photos.forEach((p, i) => {
+      window._photos.forEach(p => {
         const base = p.name.replace(/[^\w\-áéíóúñÁÉÍÓÚÑ ]/g, "").trim() || "foto";
         used[base] = (used[base] || 0) + 1;
         zip.file(base + "_" + used[base] + ".jpg", p.data.split(",")[1], { base64: true });
       });
+      const s = _sessions.find(x => x.id === _viewSid);
       const blob = await zip.generateAsync({ type: "blob" });
-      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "collages-shadowban.zip"; a.click();
+      const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+      a.download = "collages-shadowban" + (s ? "-" + s.date : "") + ".zip"; a.click();
     } catch (e) { alert("No se pudo crear el ZIP."); console.error(e); }
-    btn.disabled = false; btn.textContent = "⬇ Descargar todas las fotos (ZIP)";
+    btn.disabled = false; btn.textContent = "⬇ Descargar fotos de esta sesión (ZIP)";
   };
-
-  // Load config state
-  fdb.doc("config/settings").get().then(snap => {
-    if (snap.exists) {
-      const d = snap.data();
-      document.getElementById("togTrivia").checked = d.trivia !== false;
-      document.getElementById("togCollage").checked = d.collage !== false;
-    }
-  }).catch(() => {});
-
-  // Toggle handlers
-  document.getElementById("togTrivia").onchange = function() {
-    fdb.doc("config/settings").set({ trivia: this.checked, collage: document.getElementById("togCollage").checked }, { merge: true });
-  };
-  document.getElementById("togCollage").onchange = function() {
-    fdb.doc("config/settings").set({ trivia: document.getElementById("togTrivia").checked, collage: this.checked }, { merge: true });
-  };
-
-  // Load participants (realtime)
-  fdb.collection("participants").orderBy("timestamp", "desc").onSnapshot(snap => {
-    document.getElementById("statPart").textContent = snap.size;
-    const list = document.getElementById("partList");
-    if (snap.empty) { list.innerHTML = '<li style="color:var(--dim)">Aún no hay participantes.</li>'; return }
-    let html = "";
-    snap.forEach(doc => {
-      const d = doc.data();
-      const t = d.timestamp ? new Date(d.timestamp.toDate()).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }) : "";
-      const scoreText = d.triviaScore !== undefined ? ` — Trivia: ${d.triviaScore}/${d.triviaTotal}` : "";
-      html += `<li><span>${esc(d.name)}${scoreText}</span><span class="time">${t}</span></li>`;
-    });
-    list.innerHTML = html;
-  }, () => {});
-
-  // Load photos (realtime)
-  fdb.collection("uploads").orderBy("timestamp", "desc").onSnapshot(snap => {
-    document.getElementById("statPhotos").textContent = snap.size;
-    window._photos = [];
-    snap.forEach(doc => { const d = doc.data(); if (d.imageData) window._photos.push({ name: d.participantName || "sin-nombre", data: d.imageData }); });
-    document.getElementById("dlAll").disabled = !window._photos.length;
-    const gallery = document.getElementById("adminGallery");
-    if (snap.empty) { gallery.innerHTML = '<p style="color:var(--dim)">Aún no hay fotos.</p>'; return }
-    let html = '<div class="gallery">';
-    snap.forEach(doc => {
-      const d = doc.data();
-      html += `<div class="photo-card">
-        <img src="${esc(d.imageData)}" alt="Collage de ${esc(d.participantName)}" loading="lazy" style="width:100%;aspect-ratio:1;object-fit:cover">
-        <div class="name-tag">${esc(d.participantName)}</div>
-      </div>`;
-    });
-    html += '</div>';
-    gallery.innerHTML = html;
-  }, () => {});
 }
 
 
+const fbInit = initFirebase();
 viewAdmin();
-initFirebase().then(ok => { if (ok) viewAdmin(); });
+
 
 </script>
 </body>
