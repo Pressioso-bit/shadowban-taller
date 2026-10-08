@@ -276,6 +276,12 @@ details.kit li { margin: 5px 0 }
 .tpl.on { border-color: var(--coral); box-shadow: 0 0 0 2px var(--coral) }
 select, textarea.fld { width: 100%; box-sizing: border-box; padding: 12px 14px; border: 1.5px solid var(--line); border-radius: 12px; background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 1rem; margin-bottom: 12px }
 label.lb { display: block; font-size: .85rem; font-weight: 700; color: var(--dim); margin-bottom: 4px }
+
+.act-list .act-card { display:flex; align-items:center; gap:14px; padding:14px 16px; margin-bottom:10px; border-radius:16px }
+.act-list .act-card .num { flex:none; width:34px; height:34px }
+.act-list .act-card h3 { margin:0 0 2px; font-size:1.05rem }
+.act-list .act-card p { font-size:.85rem }
+.act-list .act-card .lock-badge { margin-top:6px }
 </style>
 </head>
 <body>
@@ -447,40 +453,28 @@ function viewActividades() {
 function renderActividades() {
   const t = activityConfig.trivia;
   const c = activityConfig.collage;
+  const lock = '<span class="lock-badge">🔒 Esperá la indicación</span>';
 
   app.innerHTML = `${header()}
-<p style="margin:0 0 20px;font-size:.95rem">Hola <strong>${esc(participantName)}</strong> 👋 Estas son las actividades del taller:</p>
+<p style="margin:0 0 16px;font-size:.95rem">Hola <strong>${esc(participantName)}</strong> 👋 Estas son las actividades del taller:</p>
 
-<div class="act-card ${t?'':'locked'}" id="actTrivia" style="margin-bottom:14px">
-  <span class="num">1</span>
-  <h3>Trivia: ¿Qué sabés del shadowban?</h3>
-  <p>Poné a prueba lo que sabés sobre censura algorítmica, violencia digital y resistencia en redes.</p>
-  ${t?'':'<span class="lock-badge">🔒 Esperá la indicación</span>'}
-</div>
-
-<div class="act-card ${c?'':'locked'}" id="actCollage">
-  <span class="num">2</span>
-  <h3>Collage: Subí tu obra</h3>
-  <p>Cuando termines tu collage, sacale una foto y subila acá para compartirla con el grupo.</p>
-  ${c?'':'<span class="lock-badge">🔒 Esperá la indicación</span>'}
-</div>
-
-<div class="act-card" id="actShare" style="margin-top:14px">
-  <span class="num" style="background:var(--turq);color:var(--navy)">3</span>
-  <h3>Compártelo y etiquétanos</h3>
-  <p>Cuéntalo en tus redes y etiqueta a @${esc(CONFIG.social.handle)} para que podamos ver y compartir tu mensaje.</p>
-</div>
-
-<div class="act-card" id="actStories" style="margin-top:14px">
-  <span class="num" style="background:var(--turq);color:var(--navy)">4</span>
-  <h3>Plantilla para stories</h3>
-  <p>Crea una imagen con tu frase, el logo y @${esc(CONFIG.social.handle)}, lista para subir a Instagram.</p>
-</div>
-
-<div class="act-card" id="actKit" style="margin-top:14px">
-  <span class="num" style="background:var(--ochre)">5</span>
-  <h3>Mini kit de recursos</h3>
-  <p>Qué hacer si te silencian o te agreden en redes: cómo documentar, protegerte y pedir ayuda.</p>
+<div class="act-list">
+  <div class="act-card ${t?'':'locked'}" id="actTrivia">
+    <span class="num">1</span>
+    <div><h3>Trivia: ¿Qué sabés del shadowban?</h3><p>Censura algorítmica, violencia digital y resistencia en redes.</p>${t?'':lock}</div>
+  </div>
+  <div class="act-card ${c?'':'locked'}" id="actCollage">
+    <span class="num">2</span>
+    <div><h3>Collage: Subí tu obra</h3><p>Sácale una foto a tu collage y compártela con el grupo.</p>${c?'':lock}</div>
+  </div>
+  <div class="act-card" id="actStories">
+    <span class="num" style="background:var(--turq);color:var(--navy)">3</span>
+    <div><h3>Plantilla para stories</h3><p>Tu frase + el logo + @${esc(CONFIG.social.handle)}, lista para Instagram.</p></div>
+  </div>
+  <div class="act-card" id="actKit">
+    <span class="num" style="background:var(--ochre)">4</span>
+    <div><h3>Mini kit de recursos</h3><p>Cómo documentar, protegerte y pedir ayuda.</p></div>
+  </div>
 </div>
 
 <div style="margin-top:20px;text-align:center">
@@ -490,7 +484,6 @@ ${footer()}`;
 
   if (t) document.getElementById("actTrivia").onclick = () => location.hash = "trivia";
   if (c) document.getElementById("actCollage").onclick = () => location.hash = "collage";
-  document.getElementById("actShare").onclick = () => location.hash = "compartir";
   document.getElementById("actStories").onclick = () => location.hash = "stories";
   document.getElementById("actKit").onclick = () => location.hash = "recursos";
 }
@@ -974,6 +967,7 @@ ${header()}
     <button class="btn turq" id="stShare" style="flex:1">Compartir</button>
   </div>
   <p id="stMsg" style="margin:12px 0 0;font-size:.9rem;color:var(--dim)" hidden></p>
+  <button class="btn ghost sm" style="margin-top:14px;width:100%" onclick="location.hash='compartir'">Copiar texto y hashtags para mi publicación</button>
 </div>
 ${footer()}`;
 
