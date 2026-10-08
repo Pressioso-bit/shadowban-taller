@@ -272,7 +272,7 @@ const ADMIN_PASSWORD = "alma2026"; // cambia aquí la contraseña del panel
 // ═══════════════════════════════════════════════════════════════
 //  Firebase SDK loader (carga desde CDN de Google)
 // ═══════════════════════════════════════════════════════════════
-let fb = null, fdb = null, fst = null;
+let fb = null, fdb = null;
 let firebaseReady = false;
 
 function loadScript(src) {
@@ -290,13 +290,9 @@ async function initFirebase() {
     const CDN = "https://www.gstatic.com/firebasejs/" + V;
     // Load app first, then firestore + storage in parallel
     await loadScript(CDN + "/firebase-app-compat.js");
-    await Promise.all([
-      loadScript(CDN + "/firebase-firestore-compat.js"),
-      loadScript(CDN + "/firebase-storage-compat.js")
-    ]);
+    await loadScript(CDN + "/firebase-firestore-compat.js");
     fb = firebase.initializeApp(CONFIG.firebase);
     fdb = firebase.firestore();
-    fst = firebase.storage();
     firebaseReady = true;
     return true;
   } catch (e) {
@@ -461,7 +457,7 @@ ${footer()}`;
     snap.forEach(doc => {
       const d = doc.data();
       html += `<div class="photo-card">
-        <img src="${esc(d.imageUrl)}" alt="Collage de ${esc(d.participantName)}" loading="lazy" style="width:100%;aspect-ratio:1;object-fit:cover">
+        <img src="${esc(d.imageData)}" alt="Collage de ${esc(d.participantName)}" loading="lazy" style="width:100%;aspect-ratio:1;object-fit:cover">
         <div class="name-tag">${esc(d.participantName)}</div>
       </div>`;
     });

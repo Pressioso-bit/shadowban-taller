@@ -271,7 +271,7 @@ input:focus { outline: 2px solid var(--coral); border-color: var(--coral) }
 // ═══════════════════════════════════════════════════════════════
 //  Firebase SDK loader (carga desde CDN de Google)
 // ═══════════════════════════════════════════════════════════════
-let fb = null, fdb = null, fst = null;
+let fb = null, fdb = null;
 let firebaseReady = false;
 
 function loadScript(src) {
@@ -289,13 +289,9 @@ async function initFirebase() {
     const CDN = "https://www.gstatic.com/firebasejs/" + V;
     // Load app first, then firestore + storage in parallel
     await loadScript(CDN + "/firebase-app-compat.js");
-    await Promise.all([
-      loadScript(CDN + "/firebase-firestore-compat.js"),
-      loadScript(CDN + "/firebase-storage-compat.js")
-    ]);
+    await loadScript(CDN + "/firebase-firestore-compat.js");
     fb = firebase.initializeApp(CONFIG.firebase);
     fdb = firebase.firestore();
-    fst = firebase.storage();
     firebaseReady = true;
     return true;
   } catch (e) {
@@ -650,20 +646,20 @@ ${footer()}`;
 
     try {
       // Compress image before upload
-      const compressed = await compressImage(selectedFile, 1200, 0.8);
-
-      // Upload to Firebase Storage
-      const filename = `collages/${participantId}_${Date.now()}.jpg`;
-      const ref = fst.ref(filename);
-      await ref.put(compressed);
-      const url = await ref.getDownloadURL();
+      // Se guarda la foto comprimida dentro de Firestore (sin Storage)
+      let dataUrl = null;
+      for (const [dim, q] of [[1000,0.75],[800,0.65],[600,0.55]]) {
+        const blob = await compressImage(selectedFile, dim, q);
+        dataUrl = await blobToDataURL(blob);
+        if (dataUrl.length < 900000) break;
+      }
+      if (dataUrl.length >= 950000) throw new Error("Foto demasiado grande");
 
       // Save record to Firestore
       await fdb.collection("uploads").add({
         participantId: participantId,
         participantName: participantName,
-        imageUrl: url,
-        storagePath: filename,
+        imageData: dataUrl,
         timestamp: firebase.firestore.FieldValue.serverTimestamp()
       });
 
@@ -700,7 +696,6 @@ async function loadMyUploads() {
   try {
     const snap = await fdb.collection("uploads")
       .where("participantId", "==", participantId)
-      .orderBy("timestamp", "desc")
       .get();
 
     if (snap.empty) return;
@@ -708,13 +703,17 @@ async function loadMyUploads() {
     let html = `<div class="card"><h3 style="font-family:var(--display);font-weight:700;margin:0 0 12px">Tus fotos subidas</h3><div class="gallery">`;
     snap.forEach(doc => {
       const d = doc.data();
-      html += `<img src="${esc(d.imageUrl)}" alt="Tu collage" loading="lazy">`;
+      html += `<img src="${esc(d.imageData)}" alt="Tu collage" loading="lazy">`;
     });
     html += `</div></div>`;
     container.innerHTML = html;
   } catch (e) {
     console.error(e);
   }
+}
+
+function blobToDataURL(blob) {
+  return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(blob); });
 }
 
 // Image compression
