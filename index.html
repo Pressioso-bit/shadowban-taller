@@ -260,6 +260,22 @@ input:focus { outline: 2px solid var(--coral); border-color: var(--coral) }
 }
 .logo { display:block; width:140px; height:auto; margin:0 auto 14px; border-radius:20px; background:#fff }
 .eyebrow, h1, .sub { text-align:center }
+
+/* ── Kit de recursos / stories ── */
+details.kit { background: var(--card); border: 1px solid var(--line); border-radius: 14px; margin-bottom: 10px; padding: 0 18px }
+details.kit summary { cursor: pointer; padding: 16px 0; font-family: var(--display); font-weight: 700; font-size: 1.05rem; list-style: none }
+details.kit summary::-webkit-details-marker { display: none }
+details.kit summary::after { content: '+'; float: right; color: var(--coral); font-size: 1.4rem; line-height: 1 }
+details.kit[open] summary::after { content: '–' }
+details.kit .body { padding: 0 0 16px; font-size: .95rem }
+details.kit ul { margin: 6px 0 0; padding-left: 20px }
+details.kit li { margin: 5px 0 }
+.chip { display: inline-block; padding: 2px 10px; border-radius: 8px; background: color-mix(in srgb, var(--turq) 30%, transparent); font-weight: 700; font-size: .9rem }
+.tpl-row { display: flex; gap: 10px; margin: 6px 0 14px }
+.tpl { flex: 1; height: 44px; border-radius: 12px; border: 2.5px solid var(--line); cursor: pointer }
+.tpl.on { border-color: var(--coral); box-shadow: 0 0 0 2px var(--coral) }
+select, textarea.fld { width: 100%; box-sizing: border-box; padding: 12px 14px; border: 1.5px solid var(--line); border-radius: 12px; background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 1rem; margin-bottom: 12px }
+label.lb { display: block; font-size: .85rem; font-weight: 700; color: var(--dim); margin-bottom: 4px }
 </style>
 </head>
 <body>
@@ -320,6 +336,8 @@ function route() {
   if (hash === "trivia") return viewTrivia();
   if (hash === "collage") return viewCollage();
   if (hash === "compartir") return viewCompartir();
+  if (hash === "recursos") return viewRecursos();
+  if (hash === "stories") return viewStories();
   if (hash === "actividades") {
     if (!participantId) return viewRegistro();
     return viewActividades();
@@ -453,6 +471,18 @@ function renderActividades() {
   <p>Cuéntalo en tus redes y etiqueta a @${esc(CONFIG.social.handle)} para que podamos ver y compartir tu mensaje.</p>
 </div>
 
+<div class="act-card" id="actStories" style="margin-top:14px">
+  <span class="num" style="background:var(--turq);color:var(--navy)">4</span>
+  <h3>Plantilla para stories</h3>
+  <p>Crea una imagen con tu frase, el logo y @${esc(CONFIG.social.handle)}, lista para subir a Instagram.</p>
+</div>
+
+<div class="act-card" id="actKit" style="margin-top:14px">
+  <span class="num" style="background:var(--ochre)">5</span>
+  <h3>Mini kit de recursos</h3>
+  <p>Qué hacer si te silencian o te agreden en redes: cómo documentar, protegerte y pedir ayuda.</p>
+</div>
+
 <div style="margin-top:20px;text-align:center">
   <button class="btn ghost sm" onclick="participantId=null;participantName='';try{localStorage.removeItem('sb_pid');localStorage.removeItem('sb_pname')}catch(e){};location.hash=''">Cambiar nombre</button>
 </div>
@@ -461,6 +491,8 @@ ${footer()}`;
   if (t) document.getElementById("actTrivia").onclick = () => location.hash = "trivia";
   if (c) document.getElementById("actCollage").onclick = () => location.hash = "collage";
   document.getElementById("actShare").onclick = () => location.hash = "compartir";
+  document.getElementById("actStories").onclick = () => location.hash = "stories";
+  document.getElementById("actKit").onclick = () => location.hash = "recursos";
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -762,6 +794,7 @@ ${header()}
     <a class="btn turq" href="${esc(S.instagram)}" target="_blank" rel="noopener" style="flex:1;text-decoration:none">Abrir @${esc(S.handle)}</a>
   </div>
   <p id="copyMsg" style="margin:12px 0 0;font-size:.9rem;color:var(--ok)" hidden>✓ Texto copiado</p>
+  <button class="btn ghost sm" style="margin-top:14px;width:100%" onclick="location.hash='stories'">Crear una imagen para mi story</button>
 </div>
 ${footer()}`;
   document.getElementById("copyBtn").onclick = async () => {
@@ -769,6 +802,220 @@ ${footer()}`;
     try { await navigator.clipboard.writeText(ta.value); }
     catch (e) { ta.removeAttribute("readonly"); ta.select(); document.execCommand("copy"); ta.setAttribute("readonly", ""); }
     document.getElementById("copyMsg").hidden = false;
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  VIEW: Mini kit de recursos
+// ═══════════════════════════════════════════════════════════════
+function viewRecursos() {
+  const S = CONFIG.social;
+  app.innerHTML = `${backBtn('actividades','Actividades')}
+${header()}
+<h2 style="font-family:var(--display);font-weight:700;font-size:1.3rem;margin:0 0 6px">Mini kit de recursos</h2>
+<p style="color:var(--dim);margin:0 0 16px;font-size:.95rem">Para cuando sientas que te silencian o te agreden en redes. No estás sola.</p>
+
+<details class="kit" open><summary>1 · Señales de que te están silenciando</summary><div class="body">
+  <ul>
+    <li>Tu alcance o tus visitas bajan de golpe sin que hayas cambiado nada.</li>
+    <li>Tus hashtags no muestran tus publicaciones, o tu contenido no aparece a quienes te siguen.</li>
+    <li>Te marcan como “sensible” o te quitan contenido sin una explicación clara.</li>
+  </ul>
+  <p style="color:var(--dim);margin:10px 0 0">Casi nunca se puede comprobar con certeza: no hay un aviso oficial. Por eso conviene documentar.</p>
+</div></details>
+
+<details class="kit"><summary>2 · Documenta antes de borrar</summary><div class="body">
+  <ul>
+    <li>Haz capturas de pantalla donde se vea la fecha y la hora.</li>
+    <li>Guarda los enlaces y los nombres de las cuentas involucradas.</li>
+    <li>Anota qué publicaste, cuándo y qué cambió (por ejemplo, tus estadísticas antes y después).</li>
+    <li>Guarda todo en un lugar aparte: tu celular, la nube o con alguien de confianza.</li>
+    <li>No borres los mensajes ni las publicaciones hasta haberlos guardado.</li>
+  </ul>
+</div></details>
+
+<details class="kit"><summary>3 · Qué puedes hacer</summary><div class="body">
+  <ul>
+    <li>Usa la opción de apelar o pedir revisión dentro de la app: “creo que se equivocaron”.</li>
+    <li>Cuéntalo en tu red: compartir lo que te pasa ayuda a que otras también lo cuenten.</li>
+    <li>Prueba con otras palabras o formatos (el <em>algospeak</em> existe por esto).</li>
+    <li>Bloquea y reporta a quien te acose, y evita responderle.</li>
+    <li>Pide acompañamiento a una persona o colectivo de confianza.</li>
+  </ul>
+</div></details>
+
+<details class="kit"><summary>4 · Cuida tu seguridad digital</summary><div class="body">
+  <ul>
+    <li>Activa la verificación en dos pasos en tus cuentas.</li>
+    <li>Usa contraseñas distintas y largas para cada cuenta.</li>
+    <li>Revisa quién puede ver tus datos, tu ubicación y tus etiquetas.</li>
+    <li>Si publicas algo muy personal, piensa antes quién puede verlo y compartirlo.</li>
+  </ul>
+</div></details>
+
+<details class="kit"><summary>5 · Algospeak: mini glosario</summary><div class="body">
+  <p style="margin:0 0 8px">Palabras cambiadas para esquivar filtros automáticos:</p>
+  <ul>
+    <li><span class="chip">unalive</span> en lugar de “muerte” o “suicidio”.</li>
+    <li><span class="chip">seggs</span> en lugar de “sexo”.</li>
+    <li><span class="chip">🌽</span> como emoji para hablar de pornografía.</li>
+  </ul>
+  <p style="color:var(--dim);margin:10px 0 0">Los filtros cambian seguido: lo que funciona hoy puede dejar de funcionar mañana.</p>
+</div></details>
+
+<details class="kit"><summary>6 · Dónde pedir ayuda</summary><div class="body">
+  <ul>
+    <li><strong>Emergencia:</strong> Carabineros <span class="chip">133</span></li>
+    <li><strong>Violencia contra las mujeres:</strong> Fono <span class="chip">1455</span> (orientación y ayuda).</li>
+    <li><strong>Denuncias:</strong> Policía de Investigaciones <span class="chip">134</span></li>
+    <li><strong>Seguridad digital:</strong> <a href="https://www.accessnow.org/help/" target="_blank" rel="noopener" style="color:var(--coral)">Access Now · línea de ayuda en seguridad digital</a></li>
+    <li><strong>Derechos digitales en América Latina:</strong> <a href="https://www.derechosdigitales.org/" target="_blank" rel="noopener" style="color:var(--coral)">Derechos Digitales</a></li>
+    <li><strong>Nuestro colectivo:</strong> escríbenos a <a href="${esc(S.instagram)}" target="_blank" rel="noopener" style="color:var(--coral)">@${esc(S.handle)}</a></li>
+  </ul>
+  <p style="color:var(--dim);margin:10px 0 0">Si estás en peligro ahora, llama primero a emergencias.</p>
+</div></details>
+${footer()}`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  VIEW: Plantilla para stories
+// ═══════════════════════════════════════════════════════════════
+const STORY_PALETTES = [
+  { bg: "#DE5D48", ink: "#FFFFFF", acc: "#58E4BF", sub: "#FFE9DF" },
+  { bg: "#0F1830", ink: "#FFFFFF", acc: "#58E4BF", sub: "#B8C4E0" },
+  { bg: "#F6EFE3", ink: "#241A17", acc: "#DE5D48", sub: "#6B5D55" }
+];
+const STORY_PROMPTS = [
+  "Para mí, el shadowban es…",
+  "No quiero que me callen sobre…",
+  "Visible a pesar del algoritmo porque…",
+  "Mi collage dice…",
+  "Una palabra que me quitaron fue…"
+];
+let storyLogo = null;
+
+function wrapLines(ctx, text, maxW) {
+  const out = [];
+  text.split("\n").forEach(par => {
+    let line = "";
+    par.split(/\s+/).forEach(w => {
+      const test = line ? line + " " + w : w;
+      if (ctx.measureText(test).width > maxW && line) { out.push(line); line = w; } else { line = test; }
+    });
+    out.push(line);
+  });
+  return out;
+}
+
+function drawStory(cv, o) {
+  const ctx = cv.getContext("2d"), W = 1080, H = 1920, P = STORY_PALETTES[o.tpl];
+  const disp = "'Bricolage Grotesque', system-ui, sans-serif", body = "'Atkinson Hyperlegible', system-ui, sans-serif";
+  ctx.fillStyle = P.bg; ctx.fillRect(0, 0, W, H);
+  // decoración: círculos suaves
+  ctx.globalAlpha = 0.14; ctx.fillStyle = P.acc;
+  ctx.beginPath(); ctx.arc(W + 40, 420, 420, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.arc(-60, H - 380, 360, 0, 7); ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+  // logo
+  if (storyLogo) {
+    const s = 250, x = (W - s) / 2, y = 260, r = 44;
+    ctx.save(); ctx.beginPath();
+    ctx.moveTo(x + r, y); ctx.arcTo(x + s, y, x + s, y + s, r); ctx.arcTo(x + s, y + s, x, y + s, r);
+    ctx.arcTo(x, y + s, x, y, r); ctx.arcTo(x, y, x + s, y, r); ctx.closePath(); ctx.clip();
+    ctx.fillStyle = "#fff"; ctx.fillRect(x, y, s, s); ctx.drawImage(storyLogo, x, y, s, s); ctx.restore();
+  }
+  ctx.fillStyle = P.acc; ctx.font = "700 34px " + body;
+  if ("letterSpacing" in ctx) ctx.letterSpacing = "6px";
+  ctx.fillText("TALLER VIOLENCIA DIGITAL", W / 2, 592);
+  if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
+  ctx.fillStyle = P.ink; ctx.font = "800 118px " + disp;
+  ctx.fillText("SHADOWBAN", W / 2, 720);
+  // pregunta
+  ctx.fillStyle = P.acc; ctx.font = "italic 700 50px " + body;
+  const pl = wrapLines(ctx, o.prompt, 880); let y = 840;
+  pl.forEach(l => { ctx.fillText(l, W / 2, y); y += 62; });
+  // respuesta con tamaño automático
+  const top = y + 40, boxH = 1480 - top, text = (o.text || "Escribe tu frase acá").trim();
+  let size = 96, lines;
+  for (; size >= 40; size -= 4) {
+    ctx.font = "800 " + size + "px " + disp; lines = wrapLines(ctx, text, 880);
+    if (lines.length * size * 1.2 <= boxH) break;
+  }
+  ctx.fillStyle = o.text ? P.ink : P.sub;
+  let ty = top + size; lines.forEach(l => { ctx.fillText(l, W / 2, ty); ty += size * 1.2; });
+  if (o.name) { ctx.fillStyle = P.sub; ctx.font = "700 42px " + body; ctx.fillText("— " + o.name, W / 2, ty + 20); }
+  // pie
+  ctx.fillStyle = P.acc; ctx.font = "800 66px " + disp; ctx.fillText("@" + CONFIG.social.handle, W / 2, 1570);
+  ctx.fillStyle = P.sub; ctx.font = "italic 400 38px " + body; ctx.fillText("visibles a pesar del algoritmo", W / 2, 1636);
+}
+
+function viewStories() {
+  app.innerHTML = `${backBtn('actividades','Actividades')}
+${header()}
+<div class="card">
+  <h2 style="font-family:var(--display);font-weight:700;font-size:1.3rem;margin:0 0 6px">Plantilla para stories</h2>
+  <p style="color:var(--dim);margin:0 0 16px;font-size:.95rem">Elige una frase, escribe tu respuesta y descarga la imagen. Súbela a tu story y etiqueta a @${esc(CONFIG.social.handle)}.</p>
+  <label class="lb" for="stPrompt">Frase</label>
+  <select id="stPrompt">${STORY_PROMPTS.map((p,i)=>`<option value="${i}">${esc(p)}</option>`).join("")}</select>
+  <label class="lb" for="stText">Tu respuesta (máx. 140 letras)</label>
+  <textarea class="fld" id="stText" rows="3" maxlength="140" placeholder="Escribe aquí…"></textarea>
+  <label class="lb" for="stName">Tu nombre (opcional)</label>
+  <input type="text" id="stName" maxlength="30" placeholder="Si quieres que aparezca" style="margin-bottom:12px">
+  <label class="lb">Color</label>
+  <div class="tpl-row" id="stTpl">
+    <div class="tpl on" data-i="0" style="background:#DE5D48"></div>
+    <div class="tpl" data-i="1" style="background:#0F1830"></div>
+    <div class="tpl" data-i="2" style="background:#F6EFE3"></div>
+  </div>
+  <canvas id="stCanvas" width="1080" height="1920" style="width:100%;max-width:300px;display:block;margin:0 auto 16px;border-radius:14px;border:1px solid var(--line)"></canvas>
+  <div style="display:flex;gap:10px;flex-wrap:wrap">
+    <button class="btn" id="stDl" style="flex:1">Descargar imagen</button>
+    <button class="btn turq" id="stShare" style="flex:1">Compartir</button>
+  </div>
+  <p id="stMsg" style="margin:12px 0 0;font-size:.9rem;color:var(--dim)" hidden></p>
+</div>
+${footer()}`;
+
+  const cv = document.getElementById("stCanvas");
+  let tpl = 0;
+  const state = () => ({ tpl, prompt: STORY_PROMPTS[+document.getElementById("stPrompt").value], text: document.getElementById("stText").value, name: document.getElementById("stName").value.trim() });
+  const redraw = () => drawStory(cv, state());
+  const init = async () => {
+    try { await Promise.all([document.fonts.load("800 60px 'Bricolage Grotesque'"), document.fonts.load("700 30px 'Atkinson Hyperlegible'")]); } catch (e) {}
+    if (!storyLogo) {
+      storyLogo = await new Promise(res => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = "logo.png"; });
+    }
+    redraw();
+  };
+  ["stPrompt", "stText", "stName"].forEach(id => document.getElementById(id).addEventListener("input", redraw));
+  document.querySelectorAll("#stTpl .tpl").forEach(el => el.onclick = () => {
+    tpl = +el.dataset.i;
+    document.querySelectorAll("#stTpl .tpl").forEach(x => x.classList.toggle("on", x === el));
+    redraw();
+  });
+  redraw(); init();
+
+  const msg = (m) => { const e = document.getElementById("stMsg"); e.textContent = m; e.hidden = false; };
+  const getBlob = () => new Promise(res => cv.toBlob(res, "image/png"));
+  document.getElementById("stDl").onclick = async () => {
+    try {
+      const b = await getBlob();
+      const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "story-shadowban.png"; a.click();
+      msg("Imagen descargada. Ábrela desde tu galería y súbela a tu story.");
+    } catch (e) { msg("No se pudo crear la imagen. Prueba abriendo la página desde el enlace del taller."); }
+  };
+  document.getElementById("stShare").onclick = async () => {
+    try {
+      const b = await getBlob();
+      const f = new File([b], "story-shadowban.png", { type: "image/png" });
+      if (navigator.canShare && navigator.canShare({ files: [f] })) {
+        await navigator.share({ files: [f], text: "@" + CONFIG.social.handle + " " + CONFIG.social.hashtags });
+      } else {
+        const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "story-shadowban.png"; a.click();
+        msg("Tu navegador no permite compartir directo; descargué la imagen para que la subas tú.");
+      }
+    } catch (e) { if (e && e.name !== "AbortError") msg("No se pudo compartir. Usa “Descargar imagen”."); }
   };
 }
 
