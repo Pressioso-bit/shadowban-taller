@@ -263,6 +263,10 @@ input:focus { outline: 2px solid var(--coral); border-color: var(--coral) }
 
 select.fld, input[type="date"].fld, textarea.fld { width:100%; box-sizing:border-box; padding:12px 14px; border:1.5px solid var(--line); border-radius:12px; background:var(--bg); color:var(--ink); font-family:var(--body); font-size:1rem; margin-bottom:12px }
 label.lb { display:block; font-size:.85rem; font-weight:700; color:var(--dim); margin-bottom:4px }
+[hidden] { display: none !important }
+.btn.danger { background: var(--bad); color: #fff }
+.photo-card .x { position:absolute; top:6px; right:6px; width:28px; height:28px; border-radius:50%; border:0; background:rgba(0,0,0,.65); color:#fff; font-size:.85rem; cursor:pointer; line-height:1 }
+.photo-card .x:hover { background: var(--bad) }
 </style>
 </head>
 <body>
@@ -382,7 +386,8 @@ function viewAdminPanel() {
   <div id="activeInfo" style="padding:10px 14px;border-radius:12px;background:color-mix(in srgb, var(--turq) 22%, transparent);font-size:.95rem;margin-bottom:14px"></div>
   <label class="lb" for="sesSel">Ver datos de</label>
   <select id="sesSel" class="fld"></select>
-  <button class="btn ghost sm" id="setActive" style="width:100%;margin-bottom:18px">Marcar la sesión elegida como activa</button>
+  <button class="btn ghost sm" id="setActive" style="width:100%;margin-bottom:10px">Marcar la sesión elegida como activa</button>
+  <button class="btn danger sm" id="sesDel" style="width:100%;margin-bottom:18px">Eliminar esta sesión y sus datos</button>
   <div style="border-top:1px solid var(--line);padding-top:16px">
     <strong style="font-size:.95rem">Nueva sesión</strong>
     <label class="lb" for="sesName" style="margin-top:10px">Nombre</label>
@@ -428,6 +433,7 @@ function viewAdminPanel() {
 
 <div class="card">
   <h3 style="font-family:var(--display);font-weight:700;margin:0 0 14px">Participantes</h3>
+  <button class="btn ghost sm" id="dlCsv" style="margin-bottom:12px">⬇ Lista de participantes (CSV)</button>
   <ul class="p-list" id="partList"><li style="color:var(--dim)">Cargando...</li></ul>
 </div>
 
@@ -458,6 +464,8 @@ ${footer()}`;
       + '<option value="all">Todas las sesiones</option><option value="none">Sin sesión (anteriores)</option>';
     $("sesSel").innerHTML = opts; $("sesSel").value = _viewSid;
     $("setActive").hidden = (_viewSid === "all" || _viewSid === "none");
+    $("sesDel").hidden = (_viewSid === "all");
+    $("sesDel").textContent = _viewSid === "none" ? "Borrar los datos sin sesión" : "Eliminar esta sesión y sus datos";
   }
 
   function renderData() {
@@ -473,7 +481,8 @@ ${footer()}`;
     $("dlAll").disabled = !window._photos.length;
     $("adminGallery").innerHTML = ups.length ? '<div class="gallery">' + ups.map(d => `<div class="photo-card">
         <img src="${esc(d.imageData || "")}" alt="Collage de ${esc(d.participantName || "")}" loading="lazy" style="width:100%;aspect-ratio:1;object-fit:cover">
-        <div class="name-tag">${esc(d.participantName || "")}</div></div>`).join("") + '</div>' : '<p style="color:var(--dim)">Aún no hay fotos en esta vista.</p>';
+        <div class="name-tag">${esc(d.participantName || "")}</div>
+        <button class="x" data-id="${esc(d._id)}" title="Eliminar esta foto">✕</button></div>`).join("") + '</div>' : '<p style="color:var(--dim)">Aún no hay fotos en esta vista.</p>';
   }
 
   // sesiones
@@ -490,12 +499,12 @@ ${footer()}`;
   }, () => {}));
   // participantes y fotos
   _unsubs.push(fdb.collection("participants").onSnapshot(snap => {
-    _parts = []; snap.forEach(d => _parts.push(d.data()));
+    _parts = []; snap.forEach(d => _parts.push(Object.assign({ _id: d.id }, d.data())));
     _parts.sort((a, b) => (b.timestamp ? b.timestamp.seconds : 9e12) - (a.timestamp ? a.timestamp.seconds : 9e12));
     renderData();
   }, () => {}));
   _unsubs.push(fdb.collection("uploads").onSnapshot(snap => {
-    _ups = []; snap.forEach(d => _ups.push(d.data()));
+    _ups = []; snap.forEach(d => _ups.push(Object.assign({ _id: d.id }, d.data())));
     _ups.sort((a, b) => (b.timestamp ? b.timestamp.seconds : 9e12) - (a.timestamp ? a.timestamp.seconds : 9e12));
     renderData();
   }, () => {}));
@@ -513,6 +522,43 @@ ${footer()}`;
     } catch (e) { alert("No se pudo crear la sesión."); console.error(e); }
     this.disabled = false;
   };
+  $("adminGallery").onclick = async (e) => {
+    const b = e.target.closest(".x"); if (!b) return;
+    if (!confirm("¿Eliminar esta foto? No se puede deshacer.")) return;
+    try { await fdb.collection("uploads").doc(b.dataset.id).delete(); } catch (err) { alert("No se pudo eliminar la foto."); console.error(err); }
+  };
+
+  $("sesDel").onclick = async function() {
+    if (_viewSid === "all") return;
+    const s = _sessions.find(x => x.id === _viewSid);
+    const label = s ? fmtDate(s.date) + " · " + s.name : "datos sin sesión";
+    const parts = _parts.filter(matchSid), ups = _ups.filter(matchSid);
+    const ans = prompt("Vas a eliminar \"" + label + "\" con " + parts.length + " participantes y " + ups.length + " fotos.\nEsto NO se puede deshacer. Descarga antes el ZIP de fotos.\n\nEscribe BORRAR para confirmar:");
+    if (ans === null || ans.trim().toUpperCase() !== "BORRAR") return;
+    this.disabled = true;
+    try {
+      const refs = parts.map(d => fdb.collection("participants").doc(d._id)).concat(ups.map(d => fdb.collection("uploads").doc(d._id)));
+      if (s) refs.push(fdb.collection("sessions").doc(s.id));
+      for (let i = 0; i < refs.length; i += 400) { const b = fdb.batch(); refs.slice(i, i + 400).forEach(r => b.delete(r)); await b.commit(); }
+      if (s && _cfg.activeSessionId === s.id) await fdb.doc("config/settings").set({ activeSessionId: firebase.firestore.FieldValue.delete() }, { merge: true });
+      _viewManual = false;
+    } catch (e) { alert("No se pudo eliminar."); console.error(e); }
+    this.disabled = false;
+  };
+
+  $("dlCsv").onclick = () => {
+    const s = _sessions.find(x => x.id === _viewSid);
+    const q = v => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
+    const rows = [["Nombre", "Sesión", "Fecha de la sesión", "Trivia", "Hora de registro"]];
+    _parts.filter(matchSid).forEach(d => {
+      const ss = _sessions.find(x => x.id === d.sessionId);
+      rows.push([d.name, ss ? ss.name : "", ss ? ss.date : "", d.triviaScore !== undefined ? d.triviaScore + "/" + d.triviaTotal : "", d.timestamp ? d.timestamp.toDate().toLocaleString("es-CL") : ""]);
+    });
+    const blob = new Blob(["\ufeff" + rows.map(r => r.map(q).join(",")).join("\n")], { type: "text/csv;charset=utf-8" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+    a.download = "participantes-shadowban" + (s ? "-" + s.date : "") + ".csv"; a.click();
+  };
+
   $("togTrivia").onchange = function() { fdb.doc("config/settings").set({ trivia: this.checked }, { merge: true }); };
   $("togCollage").onchange = function() { fdb.doc("config/settings").set({ collage: this.checked }, { merge: true }); };
 
