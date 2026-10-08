@@ -394,6 +394,7 @@ function viewAdminPanel() {
 
 <div class="card">
   <h3 style="font-family:var(--display);font-weight:700;margin:0 0 14px">Galería de collages</h3>
+  <button class="btn turq sm" id="dlAll" style="margin-bottom:14px" disabled>⬇ Descargar todas las fotos (ZIP)</button>
   <div id="adminGallery" style="color:var(--dim);font-size:.95rem">Cargando fotos...</div>
 </div>
 
@@ -415,6 +416,22 @@ ${footer()}`;
     document.getElementById("statPhotos").textContent = "–";
     return;
   }
+
+  document.getElementById("dlAll").onclick = async function() {
+    const btn = this; btn.disabled = true; btn.textContent = "Preparando ZIP...";
+    try {
+      if (!window.JSZip) await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js");
+      const zip = new JSZip(); const used = {};
+      window._photos.forEach((p, i) => {
+        const base = p.name.replace(/[^\w\-áéíóúñÁÉÍÓÚÑ ]/g, "").trim() || "foto";
+        used[base] = (used[base] || 0) + 1;
+        zip.file(base + "_" + used[base] + ".jpg", p.data.split(",")[1], { base64: true });
+      });
+      const blob = await zip.generateAsync({ type: "blob" });
+      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "collages-shadowban.zip"; a.click();
+    } catch (e) { alert("No se pudo crear el ZIP."); console.error(e); }
+    btn.disabled = false; btn.textContent = "⬇ Descargar todas las fotos (ZIP)";
+  };
 
   // Load config state
   fdb.doc("config/settings").get().then(snap => {
@@ -451,6 +468,9 @@ ${footer()}`;
   // Load photos (realtime)
   fdb.collection("uploads").orderBy("timestamp", "desc").onSnapshot(snap => {
     document.getElementById("statPhotos").textContent = snap.size;
+    window._photos = [];
+    snap.forEach(doc => { const d = doc.data(); if (d.imageData) window._photos.push({ name: d.participantName || "sin-nombre", data: d.imageData }); });
+    document.getElementById("dlAll").disabled = !window._photos.length;
     const gallery = document.getElementById("adminGallery");
     if (snap.empty) { gallery.innerHTML = '<p style="color:var(--dim)">Aún no hay fotos.</p>'; return }
     let html = '<div class="gallery">';
