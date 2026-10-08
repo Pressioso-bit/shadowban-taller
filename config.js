@@ -14,6 +14,13 @@ const CONFIG = {
     appId: "1:931774911386:web:34017e6d18df441c0f2023"
   },
   // ── Nombre del taller ──
-  tallerName: "SHADOWBAN"
+  tallerName: "SHADOWBAN",
+  // ── Redes sociales (editá acá la cuenta, los hashtags y el texto) ──
+  social: {
+    handle: "soyalmadenegra",
+    instagram: "https://www.instagram.com/soyalmadenegra/",
+    hashtags: "#Shadowban #ViolenciaDigital #AlmaDeNegra",
+    text: "Hoy participé en el taller de violencia digital SHADOWBAN: visibles a pesar del algoritmo 🧡"
+  }
 };
 

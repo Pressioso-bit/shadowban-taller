@@ -319,6 +319,7 @@ function route() {
   const hash = location.hash.slice(1) || "";
   if (hash === "trivia") return viewTrivia();
   if (hash === "collage") return viewCollage();
+  if (hash === "compartir") return viewCompartir();
   if (hash === "actividades") {
     if (!participantId) return viewRegistro();
     return viewActividades();
@@ -446,6 +447,12 @@ function renderActividades() {
   ${c?'':'<span class="lock-badge">🔒 Esperá la indicación</span>'}
 </div>
 
+<div class="act-card" id="actShare" style="margin-top:14px">
+  <span class="num" style="background:var(--turq);color:var(--navy)">3</span>
+  <h3>Compártelo y etiquétanos</h3>
+  <p>Cuéntalo en tus redes y etiqueta a @${esc(CONFIG.social.handle)} para que podamos ver y compartir tu mensaje.</p>
+</div>
+
 <div style="margin-top:20px;text-align:center">
   <button class="btn ghost sm" onclick="participantId=null;participantName='';try{localStorage.removeItem('sb_pid');localStorage.removeItem('sb_pname')}catch(e){};location.hash=''">Cambiar nombre</button>
 </div>
@@ -453,6 +460,7 @@ ${footer()}`;
 
   if (t) document.getElementById("actTrivia").onclick = () => location.hash = "trivia";
   if (c) document.getElementById("actCollage").onclick = () => location.hash = "collage";
+  document.getElementById("actShare").onclick = () => location.hash = "compartir";
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -499,7 +507,7 @@ ${footer()}`;
         <div class="meta">Resultado</div>
         <div class="score">${qscore}/${QUESTIONS.length}</div>
         <p>${qscore >= 6 ? '¡Ya sabés cómo funciona el silencio algorítmico!' : 'Ahora sabés un poco más de lo que el algoritmo no quiere que veas.'}</p>
-        <div class="row" style="justify-content:center"><button class="btn" id="rs">Jugar de nuevo</button></div>
+        <div class="row" style="justify-content:center;gap:10px;flex-wrap:wrap"><button class="btn" id="rs">Jugar de nuevo</button><button class="btn turq" onclick="location.hash='compartir'">Compartir en redes</button></div>
       </div>`;
       document.getElementById("rs").onclick = () => { qi=0; qscore=0; renderQuiz() };
 
@@ -666,6 +674,7 @@ ${footer()}`;
       uploadStatus.innerHTML = `<div class="card" style="background:color-mix(in srgb, var(--ok) 12%, transparent);border-color:var(--ok);text-align:center">
         <p style="font-size:1.1rem;font-weight:700;color:var(--ok);margin:0 0 6px">✓ ¡Foto subida!</p>
         <p style="margin:0;color:var(--dim);font-size:.9rem">Tu collage ya está guardado. Podés subir otra foto si querés.</p>
+        <p style="margin:12px 0 0"><button class="btn turq sm" onclick="location.hash='compartir'">Compartir y etiquetar a @${esc(CONFIG.social.handle)}</button></p>
       </div>`;
       uploadStatus.hidden = false;
 
@@ -734,6 +743,33 @@ function compressImage(file, maxDim, quality) {
     };
     img.src = URL.createObjectURL(file);
   });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  VIEW: Compartir en redes
+// ═══════════════════════════════════════════════════════════════
+function viewCompartir() {
+  const S = CONFIG.social;
+  const full = S.text + "\n\nEtiquétanos: @" + S.handle + "\n" + S.hashtags;
+  app.innerHTML = `${backBtn('actividades','Actividades')}
+${header()}
+<div class="card">
+  <h2 style="font-family:var(--display);font-weight:700;font-size:1.3rem;margin:0 0 6px">Compártelo y etiquétanos</h2>
+  <p style="color:var(--dim);margin:0 0 16px;font-size:.95rem">Copia este texto, pégalo en tu publicación o story y etiqueta a <strong>@${esc(S.handle)}</strong>. Si vas a mostrar tu collage o tu nombre, publícalo solo si tú quieres.</p>
+  <textarea id="shareText" readonly rows="8" style="width:100%;box-sizing:border-box;padding:14px 16px;border:1.5px solid var(--line);border-radius:12px;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:1rem;line-height:1.5;resize:none">${esc(full)}</textarea>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">
+    <button class="btn" id="copyBtn" style="flex:1">Copiar texto</button>
+    <a class="btn turq" href="${esc(S.instagram)}" target="_blank" rel="noopener" style="flex:1;text-decoration:none">Abrir @${esc(S.handle)}</a>
+  </div>
+  <p id="copyMsg" style="margin:12px 0 0;font-size:.9rem;color:var(--ok)" hidden>✓ Texto copiado</p>
+</div>
+${footer()}`;
+  document.getElementById("copyBtn").onclick = async () => {
+    const ta = document.getElementById("shareText");
+    try { await navigator.clipboard.writeText(ta.value); }
+    catch (e) { ta.removeAttribute("readonly"); ta.select(); document.execCommand("copy"); ta.setAttribute("readonly", ""); }
+    document.getElementById("copyMsg").hidden = false;
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════
