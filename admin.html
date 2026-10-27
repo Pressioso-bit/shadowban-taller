@@ -267,6 +267,15 @@ label.lb { display:block; font-size:.85rem; font-weight:700; color:var(--dim); m
 .btn.danger { background: var(--bad); color: #fff }
 .photo-card .x { position:absolute; top:6px; right:6px; width:28px; height:28px; border-radius:50%; border:0; background:rgba(0,0,0,.65); color:#fff; font-size:.85rem; cursor:pointer; line-height:1 }
 .photo-card .x:hover { background: var(--bad) }
+.photo-card img { cursor: zoom-in }
+.photo-card .dl { position:absolute; top:6px; left:6px; width:30px; height:30px; border-radius:50%; border:0; background:rgba(0,0,0,.65); color:#fff; font-size:.95rem; cursor:pointer; line-height:1 }
+.photo-card .dl:hover { background: var(--ok) }
+#lb { position:fixed; inset:0; z-index:50; background:rgba(10,8,7,.94); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:16px; box-sizing:border-box }
+#lb img { max-width:100%; max-height:calc(100vh - 150px); object-fit:contain; border-radius:10px; background:#fff }
+#lb .cap { color:#fff; font-weight:700; margin:12px 0 4px; text-align:center }
+#lb .cnt { color:#cbbfb3; font-size:.85rem; margin-bottom:12px }
+#lb .bar { display:flex; gap:10px; flex-wrap:wrap; justify-content:center }
+#lb .nav { position:absolute; top:50%; transform:translateY(-50%); width:44px; height:44px; border-radius:50%; border:0; background:rgba(255,255,255,.18); color:#fff; font-size:1.4rem; cursor:pointer }
 </style>
 </head>
 <body>
@@ -359,6 +368,40 @@ function viewAdmin() {
   viewAdminPanel();
 }
 
+function safeName(s) { return (String(s || "").replace(/[^\w\-áéíóúñÁÉÍÓÚÑ ]/g, "").trim() || "foto").replace(/\s+/g, "_"); }
+function dataUrlToBlob(u) {
+  const p = u.split(","), mime = (p[0].match(/:(.*?);/) || [, "image/jpeg"])[1], bin = atob(p[1]), arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], { type: mime });
+}
+function saveBlob(blob, filename) {
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+function downloadPhoto(d, n) {
+  const s = _sessions.find(x => x.id === _viewSid);
+  saveBlob(dataUrlToBlob(d.imageData), safeName(d.participantName) + "_" + (n + 1) + (s ? "_" + s.date : "") + ".jpg");
+}
+function openLightbox(i) {
+  const list = window._gal || []; if (!list.length) return;
+  let k = i;
+  const lb = document.createElement("div"); lb.id = "lb";
+  lb.innerHTML = `<button class="nav" id="lbPrev" style="left:10px">‹</button><button class="nav" id="lbNext" style="right:10px">›</button>
+    <img id="lbImg" alt=""><div class="cap" id="lbCap"></div><div class="cnt" id="lbCnt"></div>
+    <div class="bar"><button class="btn turq sm" id="lbDl">⬇ Descargar esta foto</button><button class="btn ghost sm" id="lbClose" style="color:#fff;border-color:rgba(255,255,255,.4)">Cerrar</button></div>`;
+  document.body.appendChild(lb);
+  const show = () => { const d = list[k]; document.getElementById("lbImg").src = d.imageData; document.getElementById("lbCap").textContent = d.participantName || ""; document.getElementById("lbCnt").textContent = (k + 1) + " de " + list.length; };
+  const close = () => { lb.remove(); document.removeEventListener("keydown", onKey); };
+  const onKey = e => { if (e.key === "Escape") close(); else if (e.key === "ArrowLeft") { k = (k - 1 + list.length) % list.length; show(); } else if (e.key === "ArrowRight") { k = (k + 1) % list.length; show(); } };
+  document.addEventListener("keydown", onKey);
+  document.getElementById("lbPrev").onclick = () => { k = (k - 1 + list.length) % list.length; show(); };
+  document.getElementById("lbNext").onclick = () => { k = (k + 1) % list.length; show(); };
+  document.getElementById("lbDl").onclick = () => downloadPhoto(list[k], k);
+  document.getElementById("lbClose").onclick = close;
+  lb.addEventListener("click", e => { if (e.target === lb) close(); });
+  show();
+}
+
 let _unsubs = [];
 let _sessions = [], _parts = [], _ups = [], _cfg = {}, _viewSid = null, _viewManual = false;
 
@@ -439,7 +482,12 @@ function viewAdminPanel() {
 
 <div class="card">
   <h3 style="font-family:var(--display);font-weight:700;margin:0 0 14px">Galería de collages</h3>
-  <button class="btn turq sm" id="dlAll" style="margin-bottom:14px" disabled>⬇ Descargar fotos de esta sesión (ZIP)</button>
+  <p style="color:var(--dim);font-size:.9rem;margin:0 0 12px">Toca una foto para verla en grande. El botón ⬇ de cada foto la descarga sola.</p>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+    <button class="btn turq sm" id="dlAll" disabled>⬇ Todas en ZIP</button>
+    <button class="btn ghost sm" id="dlEach" disabled>⬇ Todas, una por una</button>
+  </div>
+  <p id="dlMsg" style="color:var(--bad);font-size:.9rem;margin:-4px 0 12px" hidden></p>
   <div id="adminGallery" style="color:var(--dim);font-size:.95rem">Cargando fotos...</div>
 </div>
 
@@ -478,9 +526,11 @@ ${footer()}`;
       return `<li><span>${esc(d.name)}${sc}</span><span class="time">${t}</span></li>`;
     }).join("") : '<li style="color:var(--dim)">Aún no hay participantes en esta vista.</li>';
     window._photos = ups.filter(d => d.imageData).map(d => ({ name: d.participantName || "sin-nombre", data: d.imageData }));
-    $("dlAll").disabled = !window._photos.length;
-    $("adminGallery").innerHTML = ups.length ? '<div class="gallery">' + ups.map(d => `<div class="photo-card">
-        <img src="${esc(d.imageData || "")}" alt="Collage de ${esc(d.participantName || "")}" loading="lazy" style="width:100%;aspect-ratio:1;object-fit:cover">
+    window._gal = ups;
+    $("dlAll").disabled = !window._photos.length; $("dlEach").disabled = !window._photos.length;
+    $("adminGallery").innerHTML = ups.length ? '<div class="gallery">' + ups.map((d, i) => `<div class="photo-card">
+        <img data-i="${i}" src="${esc(d.imageData || "")}" alt="Collage de ${esc(d.participantName || "")}" loading="lazy" style="width:100%;aspect-ratio:1;object-fit:cover">
+        <button class="dl" data-i="${i}" title="Descargar esta foto">⬇</button>
         <div class="name-tag">${esc(d.participantName || "")}</div>
         <button class="x" data-id="${esc(d._id)}" title="Eliminar esta foto">✕</button></div>`).join("") + '</div>' : '<p style="color:var(--dim)">Aún no hay fotos en esta vista.</p>';
   }
@@ -523,6 +573,8 @@ ${footer()}`;
     this.disabled = false;
   };
   $("adminGallery").onclick = async (e) => {
+    const dl = e.target.closest(".dl"); if (dl) { downloadPhoto(window._gal[+dl.dataset.i], +dl.dataset.i); return; }
+    const im = e.target.closest("img[data-i]"); if (im) { openLightbox(+im.dataset.i); return; }
     const b = e.target.closest(".x"); if (!b) return;
     if (!confirm("¿Eliminar esta foto? No se puede deshacer.")) return;
     try { await fdb.collection("uploads").doc(b.dataset.id).delete(); } catch (err) { alert("No se pudo eliminar la foto."); console.error(err); }
@@ -563,21 +615,38 @@ ${footer()}`;
   $("togCollage").onchange = function() { fdb.doc("config/settings").set({ collage: this.checked }, { merge: true }); };
 
   $("dlAll").onclick = async function() {
-    const btn = this; btn.disabled = true; btn.textContent = "Preparando ZIP...";
+    const btn = this, msg = $("dlMsg"); msg.hidden = true; btn.disabled = true; btn.textContent = "Preparando ZIP...";
     try {
-      if (!window.JSZip) await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js");
+      if (!window.JSZip) {
+        const srcs = ["https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js", "https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"];
+        for (const u of srcs) { try { await loadScript(u); if (window.JSZip) break; } catch (e) {} }
+      }
+      if (!window.JSZip) throw new Error("no se pudo cargar la librería ZIP");
       const zip = new JSZip(); const used = {};
       window._photos.forEach(p => {
-        const base = p.name.replace(/[^\w\-áéíóúñÁÉÍÓÚÑ ]/g, "").trim() || "foto";
-        used[base] = (used[base] || 0) + 1;
+        const base = safeName(p.name); used[base] = (used[base] || 0) + 1;
         zip.file(base + "_" + used[base] + ".jpg", p.data.split(",")[1], { base64: true });
       });
       const s = _sessions.find(x => x.id === _viewSid);
       const blob = await zip.generateAsync({ type: "blob" });
-      const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
-      a.download = "collages-shadowban" + (s ? "-" + s.date : "") + ".zip"; a.click();
-    } catch (e) { alert("No se pudo crear el ZIP."); console.error(e); }
-    btn.disabled = false; btn.textContent = "⬇ Descargar fotos de esta sesión (ZIP)";
+      saveBlob(blob, "collages-shadowban" + (s ? "-" + s.date : "") + ".zip");
+    } catch (e) {
+      console.error(e);
+      msg.textContent = "No se pudo crear el ZIP (" + (e.message || e) + "). Usa «Todas, una por una» o descarga cada foto con su botón ⬇.";
+      msg.hidden = false;
+    }
+    btn.disabled = false; btn.textContent = "⬇ Todas en ZIP";
+  };
+
+  $("dlEach").onclick = async function() {
+    const btn = this; btn.disabled = true;
+    const list = (window._gal || []).filter(d => d.imageData);
+    for (let i = 0; i < list.length; i++) {
+      btn.textContent = "Descargando " + (i + 1) + " de " + list.length + "...";
+      downloadPhoto(list[i], i);
+      await new Promise(r => setTimeout(r, 500));
+    }
+    btn.textContent = "⬇ Todas, una por una"; btn.disabled = false;
   };
 }
 
