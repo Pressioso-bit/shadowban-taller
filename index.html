@@ -701,13 +701,13 @@ ${footer()}`;
       if (dataUrl.length >= 950000) throw new Error("Foto demasiado grande");
 
       // Save record to Firestore
-      await fdb.collection("uploads").add({
+      await withTimeout(fdb.collection("uploads").add({
         participantId: participantId,
         participantName: participantName,
         sessionId: (participantSid && participantSid !== "-") ? participantSid : null,
         imageData: dataUrl,
         timestamp: firebase.firestore.FieldValue.serverTimestamp()
-      });
+      }), 30000);
 
       uploadStatus.innerHTML = `<div class="card" style="background:color-mix(in srgb, var(--ok) 12%, transparent);border-color:var(--ok);text-align:center">
         <p style="font-size:1.1rem;font-weight:700;color:var(--ok);margin:0 0 6px">✓ ¡Foto subida!</p>
@@ -726,7 +726,12 @@ ${footer()}`;
       loadMyUploads();
     } catch (err) {
       console.error(err);
-      uploadStatus.innerHTML = `<p style="color:var(--bad)">Error al subir la foto. Intentá de nuevo.</p>`;
+      const m = (err && err.message) || "";
+      const txt = m === "FORMATO" ? "Esa foto no se pudo leer (formato no compatible). Prueba sacando la foto de nuevo con la cámara, o elige otra."
+        : m.indexOf("TIEMPO") === 0 ? "La conexión está muy lenta o se cortó. Revisa tu wifi o tus datos e intenta de nuevo."
+        : m.indexOf("demasiado grande") >= 0 ? "La foto es demasiado pesada. Prueba con otra o sácala de nuevo."
+        : "No se pudo subir la foto. Intenta de nuevo. (" + m + ")";
+      uploadStatus.innerHTML = `<p style="color:var(--bad)">${esc(txt)}</p>`;
       uploadStatus.hidden = false;
     }
     uploadBtn.disabled = false;
@@ -759,27 +764,36 @@ async function loadMyUploads() {
   }
 }
 
+function withTimeout(p, ms) {
+  return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("TIEMPO")), ms))]);
+}
+
 function blobToDataURL(blob) {
   return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(blob); });
 }
 
 // Image compression
 function compressImage(file, maxDim, quality) {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
     const img = new Image();
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
+    const timer = setTimeout(() => reject(new Error("FORMATO")), 20000);
     img.onload = () => {
-      let w = img.width, h = img.height;
-      if (w > maxDim || h > maxDim) {
-        if (w > h) { h = Math.round(h * maxDim / w); w = maxDim }
-        else { w = Math.round(w * maxDim / h); h = maxDim }
-      }
-      canvas.width = w; canvas.height = h;
-      ctx.drawImage(img, 0, 0, w, h);
-      canvas.toBlob(blob => resolve(blob), "image/jpeg", quality);
+      clearTimeout(timer);
+      try {
+        let w = img.width, h = img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) { h = Math.round(h * maxDim / w); w = maxDim }
+          else { w = Math.round(w * maxDim / h); h = maxDim }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        canvas.toBlob(blob => { URL.revokeObjectURL(url); blob ? resolve(blob) : reject(new Error("FORMATO")); }, "image/jpeg", quality);
+      } catch (e) { reject(e); }
     };
-    img.src = URL.createObjectURL(file);
+    img.onerror = () => { clearTimeout(timer); reject(new Error("FORMATO")); };
+    img.src = url;
   });
 }
 

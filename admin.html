@@ -582,6 +582,7 @@ ${footer()}`;
   $("sesNew").onclick = async function() {
     const name = $("sesName").value.trim() || "Taller", date = $("sesDate").value;
     if (!date) { alert("Elige la fecha de la sesión."); return; }
+    if (_sessions.some(s => s.date === date && (s.name || "").trim().toLowerCase() === name.toLowerCase()) && !confirm("Ya existe una sesión con el mismo nombre y la misma fecha. ¿Crear otra igual de todos modos?")) return;
     this.disabled = true;
     try {
       const ref = await fdb.collection("sessions").add({ name, date, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
