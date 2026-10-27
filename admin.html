@@ -276,6 +276,12 @@ label.lb { display:block; font-size:.85rem; font-weight:700; color:var(--dim); m
 #lb .cnt { color:#cbbfb3; font-size:.85rem; margin-bottom:12px }
 #lb .bar { display:flex; gap:10px; flex-wrap:wrap; justify-content:center }
 #lb .nav { position:absolute; top:50%; transform:translateY(-50%); width:44px; height:44px; border-radius:50%; border:0; background:rgba(255,255,255,.18); color:#fff; font-size:1.4rem; cursor:pointer }
+.sl { display:flex; flex-direction:column; gap:8px; margin-bottom:14px }
+.sess-row { display:block; width:100%; text-align:left; padding:12px 14px; border:1.5px solid var(--line); border-radius:12px; background:var(--bg); color:var(--ink); font-family:var(--body); font-size:.95rem; cursor:pointer }
+.sess-row:hover { border-color: var(--coral) }
+.sess-row.on { border-color: var(--coral); background: color-mix(in srgb, var(--coral) 10%, transparent); box-shadow: 0 0 0 1px var(--coral) }
+.sess-row .meta { display:block; margin-top:3px; font-size:.82rem; color:var(--dim) }
+.sess-row .star { float:right; font-size:.75rem; font-weight:700; color:var(--ok) }
 </style>
 </head>
 <body>
@@ -379,8 +385,8 @@ function saveBlob(blob, filename) {
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 }
 function downloadPhoto(d, n) {
-  const s = _sessions.find(x => x.id === _viewSid);
-  saveBlob(dataUrlToBlob(d.imageData), safeName(d.participantName) + "_" + (n + 1) + (s ? "_" + s.date : "") + ".jpg");
+  const tag = sessTag(d.sessionId || _viewSid);
+  saveBlob(dataUrlToBlob(d.imageData), safeName(d.participantName) + "_" + (n + 1) + (tag ? "_" + tag : "") + ".jpg");
 }
 function openLightbox(i) {
   const list = window._gal || []; if (!list.length) return;
@@ -406,7 +412,13 @@ let _unsubs = [];
 let _sessions = [], _parts = [], _ups = [], _cfg = {}, _viewSid = null, _viewManual = false;
 
 function fmtDate(s) { if (!s) return ""; const p = s.split("-"); return p.length === 3 ? p[2] + "-" + p[1] + "-" + p[0] : s; }
-function sessLabel(s) { return fmtDate(s.date) + " · " + s.name + (_cfg.activeSessionId === s.id ? "  ★ activa" : ""); }
+function sessNum(id) {
+  const asc = _sessions.slice().sort((a, b) => (a.date || "").localeCompare(b.date || "") || ((a.createdAt ? a.createdAt.seconds : 0) - (b.createdAt ? b.createdAt.seconds : 0)));
+  const i = asc.findIndex(s => s.id === id); return i < 0 ? null : i + 1;
+}
+function sessLabel(s) { return "Sesión " + sessNum(s.id) + " · " + fmtDate(s.date) + " · " + s.name + (_cfg.activeSessionId === s.id ? "  (activa)" : ""); }
+function sessTag(id) { const s = _sessions.find(x => x.id === id); return s ? "sesion" + sessNum(s.id) + "_" + s.date : ""; }
+function counts(pred) { return { p: _parts.filter(pred).length, f: _ups.filter(pred).length }; }
 function matchSid(d) { return _viewSid === "all" ? true : _viewSid === "none" ? !d.sessionId : d.sessionId === _viewSid; }
 
 function viewAdminPanel() {
@@ -427,8 +439,8 @@ function viewAdminPanel() {
   <h3 style="font-family:var(--display);font-weight:700;margin:0 0 4px">Sesión del taller</h3>
   <p style="color:var(--dim);font-size:.9rem;margin:0 0 14px">Cada vez que hagas el taller, crea una sesión con su fecha. Las personas se registran en la <strong>sesión activa</strong>, y aquí puedes ver los datos de cada una por separado.</p>
   <div id="activeInfo" style="padding:10px 14px;border-radius:12px;background:color-mix(in srgb, var(--turq) 22%, transparent);font-size:.95rem;margin-bottom:14px"></div>
-  <label class="lb" for="sesSel">Ver datos de</label>
-  <select id="sesSel" class="fld"></select>
+  <label class="lb">Ver datos de (toca una sesión)</label>
+  <div class="sl" id="sesList"></div>
   <button class="btn ghost sm" id="setActive" style="width:100%;margin-bottom:10px">Marcar la sesión elegida como activa</button>
   <button class="btn danger sm" id="sesDel" style="width:100%;margin-bottom:18px">Eliminar esta sesión y sus datos</button>
   <div style="border-top:1px solid var(--line);padding-top:16px">
@@ -475,13 +487,15 @@ function viewAdminPanel() {
 </div>
 
 <div class="card">
-  <h3 style="font-family:var(--display);font-weight:700;margin:0 0 14px">Participantes</h3>
+  <h3 style="font-family:var(--display);font-weight:700;margin:0 0 4px">Participantes</h3>
+  <p id="viewTitleP" style="color:var(--dim);font-size:.85rem;margin:0 0 12px"></p>
   <button class="btn ghost sm" id="dlCsv" style="margin-bottom:12px">⬇ Lista de participantes (CSV)</button>
   <ul class="p-list" id="partList"><li style="color:var(--dim)">Cargando...</li></ul>
 </div>
 
 <div class="card">
-  <h3 style="font-family:var(--display);font-weight:700;margin:0 0 14px">Galería de collages</h3>
+  <h3 style="font-family:var(--display);font-weight:700;margin:0 0 4px">Galería de collages</h3>
+  <p id="viewTitleG" style="color:var(--dim);font-size:.85rem;margin:0 0 12px"></p>
   <p style="color:var(--dim);font-size:.9rem;margin:0 0 12px">Toca una foto para verla en grande. El botón ⬇ de cada foto la descarga sola.</p>
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
     <button class="btn turq sm" id="dlAll" disabled>⬇ Todas en ZIP</button>
@@ -506,18 +520,22 @@ ${footer()}`;
 
   function renderSessionUI() {
     const act = _sessions.find(s => s.id === _cfg.activeSessionId);
-    $("activeInfo").innerHTML = act ? "Sesión activa: <strong>" + esc(sessLabel(act).replace("  ★ activa", "")) + "</strong>" : "No hay sesión activa: las personas se registran sin sesión. Crea una abajo.";
+    $("activeInfo").innerHTML = act ? "Sesión activa: <strong>" + esc(sessLabel(act).replace("  (activa)", "")) + "</strong>" : "No hay sesión activa: las personas se registran sin sesión. Crea una abajo.";
     if (!_viewManual || (_viewSid !== "all" && _viewSid !== "none" && !_sessions.find(s => s.id === _viewSid))) _viewSid = (act && act.id) || (_sessions[0] && _sessions[0].id) || "all";
-    const opts = _sessions.map(s => `<option value="${esc(s.id)}">${esc(sessLabel(s))}</option>`).join("")
-      + '<option value="all">Todas las sesiones</option><option value="none">Sin sesión (anteriores)</option>';
-    $("sesSel").innerHTML = opts; $("sesSel").value = _viewSid;
+    const row = (sid, title, pred, extra) => { const c = counts(pred); return `<button class="sess-row${_viewSid === sid ? " on" : ""}" data-sid="${esc(sid)}">${extra || ""}<b>${title}</b><span class="meta">${c.p} personas · ${c.f} fotos</span></button>`; };
+    $("sesList").innerHTML = _sessions.map(s => row(s.id, "Sesión " + sessNum(s.id) + " · " + esc(fmtDate(s.date)) + " · " + esc(s.name), d => d.sessionId === s.id, _cfg.activeSessionId === s.id ? '<span class="star">● ACTIVA</span>' : "")).join("")
+      + row("all", "Todas las sesiones", () => true) + row("none", "Sin sesión (anteriores)", d => !d.sessionId);
     $("setActive").hidden = (_viewSid === "all" || _viewSid === "none");
     $("sesDel").hidden = (_viewSid === "all");
     $("sesDel").textContent = _viewSid === "none" ? "Borrar los datos sin sesión" : "Eliminar esta sesión y sus datos";
   }
 
   function renderData() {
+    renderSessionUI();
     const parts = _parts.filter(matchSid), ups = _ups.filter(matchSid);
+    const vs = _sessions.find(x => x.id === _viewSid);
+    const vt = vs ? "Sesión " + sessNum(vs.id) + " · " + fmtDate(vs.date) + " · " + vs.name : (_viewSid === "none" ? "Sin sesión (anteriores)" : "Todas las sesiones");
+    $("viewTitleP").textContent = vt; $("viewTitleG").textContent = vt;
     $("statPart").textContent = parts.length; $("statPhotos").textContent = ups.length;
     const list = $("partList");
     list.innerHTML = parts.length ? parts.map(d => {
@@ -559,7 +577,7 @@ ${footer()}`;
     renderData();
   }, () => {}));
 
-  $("sesSel").onchange = function() { _viewSid = this.value; _viewManual = true; renderSessionUI(); renderData(); };
+  $("sesList").onclick = (e) => { const b = e.target.closest(".sess-row"); if (!b) return; _viewSid = b.dataset.sid; _viewManual = true; renderSessionUI(); renderData(); };
   $("setActive").onclick = () => { if (_viewSid && _viewSid !== "all" && _viewSid !== "none") fdb.doc("config/settings").set({ activeSessionId: _viewSid }, { merge: true }); };
   $("sesNew").onclick = async function() {
     const name = $("sesName").value.trim() || "Taller", date = $("sesDate").value;
@@ -583,7 +601,7 @@ ${footer()}`;
   $("sesDel").onclick = async function() {
     if (_viewSid === "all") return;
     const s = _sessions.find(x => x.id === _viewSid);
-    const label = s ? fmtDate(s.date) + " · " + s.name : "datos sin sesión";
+    const label = s ? "Sesión " + sessNum(s.id) + " · " + fmtDate(s.date) + " · " + s.name : "datos sin sesión";
     const parts = _parts.filter(matchSid), ups = _ups.filter(matchSid);
     const ans = prompt("Vas a eliminar \"" + label + "\" con " + parts.length + " participantes y " + ups.length + " fotos.\nEsto NO se puede deshacer. Descarga antes el ZIP de fotos.\n\nEscribe BORRAR para confirmar:");
     if (ans === null || ans.trim().toUpperCase() !== "BORRAR") return;
@@ -599,16 +617,16 @@ ${footer()}`;
   };
 
   $("dlCsv").onclick = () => {
-    const s = _sessions.find(x => x.id === _viewSid);
+    const tag = sessTag(_viewSid);
     const q = v => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
-    const rows = [["Nombre", "Sesión", "Fecha de la sesión", "Trivia", "Hora de registro"]];
+    const rows = [["Nombre", "N° de sesión", "Sesión", "Fecha de la sesión", "Trivia", "Hora de registro"]];
     _parts.filter(matchSid).forEach(d => {
       const ss = _sessions.find(x => x.id === d.sessionId);
-      rows.push([d.name, ss ? ss.name : "", ss ? ss.date : "", d.triviaScore !== undefined ? d.triviaScore + "/" + d.triviaTotal : "", d.timestamp ? d.timestamp.toDate().toLocaleString("es-CL") : ""]);
+      rows.push([d.name, ss ? sessNum(ss.id) : "", ss ? ss.name : "", ss ? ss.date : "", d.triviaScore !== undefined ? d.triviaScore + "/" + d.triviaTotal : "", d.timestamp ? d.timestamp.toDate().toLocaleString("es-CL") : ""]);
     });
     const blob = new Blob(["\ufeff" + rows.map(r => r.map(q).join(",")).join("\n")], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
-    a.download = "participantes-shadowban" + (s ? "-" + s.date : "") + ".csv"; a.click();
+    a.download = "participantes-shadowban" + (tag ? "-" + tag : "") + ".csv"; a.click();
   };
 
   $("togTrivia").onchange = function() { fdb.doc("config/settings").set({ trivia: this.checked }, { merge: true }); };
@@ -627,9 +645,9 @@ ${footer()}`;
         const base = safeName(p.name); used[base] = (used[base] || 0) + 1;
         zip.file(base + "_" + used[base] + ".jpg", p.data.split(",")[1], { base64: true });
       });
-      const s = _sessions.find(x => x.id === _viewSid);
+      const tag = sessTag(_viewSid);
       const blob = await zip.generateAsync({ type: "blob" });
-      saveBlob(blob, "collages-shadowban" + (s ? "-" + s.date : "") + ".zip");
+      saveBlob(blob, "collages-shadowban" + (tag ? "-" + tag : "") + ".zip");
     } catch (e) {
       console.error(e);
       msg.textContent = "No se pudo crear el ZIP (" + (e.message || e) + "). Usa «Todas, una por una» o descarga cada foto con su botón ⬇.";
